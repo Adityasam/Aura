@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+</head>
+
+<body>
+    <button onclick="startDownload()">Download</button>
+    <input type="text" id="search">
+    <audio src="" controls id="song"></audio>
+    <div id="container">
+        <div>
+            <h4>Albums</h4>
+            <ul id="albums"></ul>
+        </div>
+        <div>
+            <h4>Songs</h4>
+            <ul id="songs"></ul>
+        </div>
+    </div>
+</body>
+<script>
+    function startDownload() {
+        const search = document.getElementById("search").value.trim().toLowerCase();
+        fetch('http://localhost:5000/search?search='+search)
+            .then(response => {
+                if (!response.ok) throw new Error("Network response was not ok");
+                return response.json(); // 👈 parse JSON body
+            })
+            .then(data => {
+                console.log("Data received from Flask:", data);
+
+                // Example: display the items in the page
+                const album_list = document.getElementById('albums');
+                const song_list = document.getElementById('songs');
+                data.links.forEach(item => {
+                    const li = document.createElement('li');
+                    li.textContent = item;
+                    if (item.includes("/album/")) {
+                        album_list.appendChild(li);
+                    } else if (item.includes("/songs/")) {
+                        li.addEventListener("click", function () {
+                            load_song(item);
+                        })
+                        song_list.appendChild(li);
+                    }
+                });
+            })
+            .catch(error => {
+                console.error("Error fetching data:", error);
+            });
+
+    }
+
+    function load_song(url) {
+        fetch('http://localhost:5000/load_song?url=' + url)
+            .then(res => {
+                if (!res.ok) throw new Error("Network error");
+                return res.blob(); // 👈 convert response to binary Blob
+            })
+            .then(blob => {
+                // Create object URL to play/display
+                const url = URL.createObjectURL(blob);
+
+                // Example for audio
+                const audio = document.getElementById("song");
+                audio.src = url;
+            })
+            .catch(err => console.error(err));
+
+    }
+</script>
+
+</html>

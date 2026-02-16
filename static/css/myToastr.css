@@ -1,0 +1,28 @@
+.my-toast-container{
+    position: fixed;
+    max-width: 90vw;
+    border-radius: 2rem;
+    padding: 0.2rem 0.8rem;
+    bottom: -0.5rem;
+    left: 50%;
+    transform: translateX(-50%);
+    border: 1px solid #00000030;
+    pointer-events: none;
+    opacity: 0;
+    transition: all ease-in-out 200ms;
+}
+
+.my-toast-container.success{
+    background-color: #198754;
+    color: white;
+}
+
+.my-toast-container.warning{
+    background-color: "#bb2d3b";
+    color: white;
+}
+
+.my-toast-container.show{
+    opacity: 100;
+    bottom: 0.5rem;
+}
