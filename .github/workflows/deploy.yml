@@ -1,0 +1,29 @@
+name: Django Deployment
+
+on:
+  push:
+    branches: [ main ]  # Triggers when you push to the main branch
+  workflow_dispatch: # This adds the manual "Run" button
+    inputs:
+      reason:
+        description: 'Reason for manual deploy'
+        required: false
+        default: 'Manual update'
+
+jobs:
+  deploy:
+    runs-on: self-hosted  # This tells it to run on your Windows VPS
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Sync Files and Update
+        shell: powershell
+        run: |
+          cd "C:\AudioPlayer"
+          
+          # 2. Pull the latest code
+          git pull origin main
+          
+          Restart-WebAppPool -Name "MusicPlayer"
