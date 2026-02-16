@@ -33,6 +33,14 @@
             --text-secondary: #b0b0b0;
         }
 
+        .top-left-burger {
+            position: fixed;
+            top: 1.5rem;
+            left: 0rem;
+            z-index: 10;
+            animation: slideInDown 0.6s ease-out;
+        }
+
         @keyframes slideInUpRotated {
             from {
                 opacity: 0;
@@ -439,7 +447,7 @@
 
         .left-status-container {
             position: fixed;
-            bottom: 4rem;
+            bottom: 0;
             left: 1.5rem;
             display: flex;
             column-gap: 1rem;
@@ -447,6 +455,7 @@
             transform-origin: left;
             font-size: 0.8rem;
             animation: slideInUpRotated 0.6s ease-out 0.3s both;
+            z-index: 100;
         }
 
         .left-status-container>.play-mode {
@@ -573,10 +582,146 @@
             font-style: italic;
             animation: fadeIn 0.4s ease-out;
         }
+
+        /* Side Menu Styles */
+        .side-menu {
+            position: fixed;
+            top: 0;
+            left: -280px;
+            width: 280px;
+            height: 100vh;
+            background-color: var(--card-bg);
+            z-index: 1000;
+            transition: left 0.3s ease-in-out;
+            box-shadow: 2px 0 15px rgba(0, 0, 0, 0.5);
+            display: flex;
+            flex-direction: column;
+            padding: 2rem 1rem;
+        }
+
+        .side-menu.active {
+            left: 0;
+        }
+
+        .side-menu-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background-color: rgba(0, 0, 0, 0.5);
+            z-index: 999;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease-in-out;
+        }
+
+        .side-menu-overlay.active {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .menu-item {
+            display: flex;
+            align-items: center;
+            gap: 1.2rem;
+            padding: 1.2rem;
+            color: var(--text-primary);
+            text-decoration: none;
+            border-radius: 1rem;
+            transition: all 0.3s ease;
+            cursor: pointer;
+            margin-bottom: 0.8rem;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            font-weight: 500;
+            background-color: rgba(255, 255, 255, 0.02);
+        }
+
+        .menu-item:hover {
+            background-color: rgba(255, 111, 98, 0.1);
+            color: var(--orange);
+            border-color: rgba(255, 111, 98, 0.3);
+            transform: translateX(5px);
+            box-shadow: 0 4px 15px rgba(255, 111, 98, 0.1);
+        }
+
+        .menu-item i {
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2rem;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 12px;
+            transition: all 0.3s ease;
+        }
+
+        .menu-item:hover i {
+            background: linear-gradient(135deg, var(--orange), #ff8566);
+            color: white;
+            transform: scale(1.1);
+            box-shadow: 0 4px 10px rgba(255, 111, 98, 0.3);
+        }
+
+        .menu-header {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: var(--orange);
+            margin-bottom: 2rem;
+            padding-left: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .burger-menu {
+            background: none;
+            border: none;
+            color: white;
+            font-size: 1.2rem;
+            padding: 0.5rem;
+            cursor: pointer;
+            transition: transform 0.2s ease;
+            margin-right: 0.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .burger-menu:hover {
+            transform: scale(1.1);
+            color: var(--orange);
+            box-shadow: none;
+        }
     </style>
 </head>
 
 <body>
+    <!-- Side Menu -->
+    <div class="side-menu-overlay" id="side-menu-overlay" onclick="toggleSideMenu()"></div>
+    <div class="side-menu" id="side-menu">
+        <div class="menu-header">
+            <i class="fas fa-music"></i> Aura
+        </div>
+        <div class="menu-item" onclick="export_songs()">
+            <i class="fas fa-file-export"></i>
+            <span>Export Songs</span>
+        </div>
+        <div class="menu-item" onclick="import_songs()">
+            <i class="fas fa-file-import"></i>
+            <span>Import Songs</span>
+        </div>
+        <input type="file" id="import-file" hidden accept=".json" onchange="process_import(event)">
+    </div>
+
+    <!-- Top Left Burger Icon -->
+    <div class="top-left-burger">
+        <button class="burger-menu" onclick="toggleSideMenu()">
+            <i class="fas fa-bars"></i>
+        </button>
+    </div>
+
     <div>
         <div class="main-song-container p-4">
             <div class="orange-back bg-orange"></div>
@@ -702,6 +847,11 @@
     const noresult = document.getElementById("no-result");
     const noresult_offline = document.getElementById("no-result-offline");
     const songloader = document.getElementById("song-loading");
+    
+    function toggleSideMenu() {
+        document.getElementById("side-menu").classList.toggle("active");
+        document.getElementById("side-menu-overlay").classList.toggle("active");
+    }
 
     let current_state = "";
 
@@ -950,6 +1100,120 @@
         }
     }
 
+    function export_songs() {
+        if (!db) {
+            show_toast("Database not ready");
+            return;
+        }
+        const tx = db.transaction('songs', 'readonly');
+        const store = tx.objectStore('songs');
+        const request = store.getAll();
+
+        request.onsuccess = () => {
+            const songs = request.result;
+            if (!songs || songs.length === 0) {
+                show_toast("No songs to export");
+                return;
+            }
+            const exportData = songs.map(s => {
+                const { blob, ...rest } = s;
+                return rest;
+            });
+
+            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(exportData));
+            const downloadAnchorNode = document.createElement('a');
+            downloadAnchorNode.setAttribute("href", dataStr);
+            downloadAnchorNode.setAttribute("download", "songs_export.json");
+            document.body.appendChild(downloadAnchorNode); 
+            downloadAnchorNode.click();
+            downloadAnchorNode.remove();
+            show_toast("Exported " + exportData.length + " songs");
+        };
+
+        request.onerror = (e) => {
+            console.error("Export error:", e);
+            show_toast("Export failed");
+        };
+    }
+
+    function import_songs() {
+        document.getElementById('import-file').click();
+    }
+
+    function process_import(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            try {
+                const songs = JSON.parse(e.target.result);
+                if (!Array.isArray(songs)) {
+                    show_toast("Invalid file format");
+                    return;
+                }
+
+                if (!db) {
+                    show_toast("Database not ready");
+                    return;
+                }
+
+                const tx = db.transaction('songs', 'readwrite');
+                const store = tx.objectStore('songs');
+                let addedCount = 0;
+                let processedCount = 0;
+
+                songs.forEach(song => {
+                    // Only add if it has an ID
+                    if (song.id) {
+                        const request = store.get(song.id);
+                        
+                        request.onsuccess = (e) => {
+                            const result = e.target.result;
+                            if (!result) {
+                                // Only put if doesn't exist
+                                store.put(song, song.id);
+                                addedCount++;
+                            }
+                            processedCount++;
+                            checkCompletion();
+                        };
+                        
+                        request.onerror = () => {
+                             processedCount++;
+                             checkCompletion();
+                        };
+                    } else {
+                        processedCount++;
+                        checkCompletion();
+                    }
+                });
+
+                function checkCompletion() {
+                    if (processedCount === songs.length) {
+                        if (addedCount > 0) {
+                            show_toast(`Imported ${addedCount} new songs`);
+                            create_saved_song_list();
+                        } else {
+                            show_toast("No new songs to import");
+                        }
+                        event.target.value = '';
+                    }
+                }
+
+                tx.onerror = () => {
+                    console.error("Import error:", tx.error);
+                    show_toast("Import failed");
+                };
+
+            } catch (err) {
+                console.error("Error parsing JSON:", err);
+                show_toast("Error parsing file");
+            }
+        };
+        reader.readAsText(file);
+    }
+
     function play_song(song) {
         if ('mediaSession' in navigator) {
             navigator.mediaSession.metadata = new MediaMetadata({
@@ -1161,7 +1425,7 @@
             set_play_state("loading");
 
             loadBlob(id).then(data => {
-                if (data) {
+                if (data && data.blob) {
                     const songblob = data.blob;
                     const url = URL.createObjectURL(songblob);
 
