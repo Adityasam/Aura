@@ -25,19 +25,5 @@ jobs:
           
           # 2. Pull the latest code
           git pull origin main
-
-          # 1. Load the required IIS module
-          Import-Module WebAdministration
           
-          # 2. Check if the IIS drive exists; if not, navigate via the provider
-          if (Test-Path "IIS:\AppPools\MusicPlayer") {
-              Write-Host "Confirmed: MusicPlayer exists. Restarting..."
-              Restart-WebAppPool -Name "MusicPlayer"
-          } else {
-              Write-Error "CRITICAL: MusicPlayer not found in IIS:\AppPools"
-              Write-Host "Available Pools are:"
-              Get-ChildItem "IIS:\AppPools" | Select-Object Name, State
-              exit 1
-          }
-          
-          # Restart-WebAppPool -Name "MusicPlayer"
+          Restart-WebAppPool -Name "MusicPlayer"
