@@ -1,4 +1,4 @@
-const CACHE_NAME = "Aura-V3.2";
+const CACHE_NAME = "Aura-V3.3";
 const urlsToCache = [
   "/",
   "/static/css/all.min.css",
