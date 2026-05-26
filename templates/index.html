@@ -1132,7 +1132,7 @@
                 needsImageUpdate = true;
             }
 
-            if (savedData && savedData.image_blob && !needsImageUpdate) {
+            if (savedData && savedData.image_blob instanceof Blob && !needsImageUpdate) {
                 imageUrl = URL.createObjectURL(savedData.image_blob);
             } else if (imageUrl && imageUrl.includes("w60-h60")) {
                 // This branch is now redundant due to the check above but kept for safety
@@ -1149,7 +1149,7 @@
             
             set_play_state(autoPlay ? "loading" : "play");
 
-            if (savedData && savedData.blob) {
+            if (savedData && savedData.blob instanceof Blob) {
                 player.src = URL.createObjectURL(savedData.blob);
                 if (autoPlay) player.play().catch(() => set_play_state("play"));
                 if (needsImageUpdate) saveBlob(song); // Fix low-res image for saved song
@@ -1158,10 +1158,12 @@
                 fetch(`/load_song?id=${id}&type=${fetchType}`)
                     .then(res => res.blob())
                     .then(blob => {
-                        player.src = URL.createObjectURL(blob);
-                        if (autoPlay) player.play().catch(() => set_play_state("play"));
-                        song["blob"] = blob;
-                        saveBlob(song);
+                        if (blob instanceof Blob) {
+                            player.src = URL.createObjectURL(blob);
+                            if (autoPlay) player.play().catch(() => set_play_state("play"));
+                            song["blob"] = blob;
+                            saveBlob(song);
+                        }
                     })
                     .catch(() => set_play_state("play"));
             }
@@ -1215,7 +1217,7 @@
             if (currentSongId === song.id) temp.classList.add("selected");
 
             let displayImage = song.image || "/static/img/bg.png";
-            if (mode === "offline" && song.image_blob) {
+            if (mode === "offline" && song.image_blob instanceof Blob) {
                 displayImage = URL.createObjectURL(song.image_blob);
             }
 
