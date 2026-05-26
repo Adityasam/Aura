@@ -894,6 +894,12 @@
         // Add index for sorting if not present
         if (!song.index) song.index = Date.now();
         
+        // Upscale image URL if low-res and force re-fetch of image_blob
+        if (song.image && song.image.includes("w60-h60")) {
+            song.image = song.image.replace("w60-h60", "w400-h400");
+            delete song.image_blob;
+        }
+        
         // Fetch and save image as blob if not already saved
         if (!song.image_blob && song.image) {
             try {
@@ -1118,9 +1124,18 @@
             const savedData = await loadBlob(id);
             
             let imageUrl = song.image;
-            if (savedData && savedData.image_blob) {
+            let needsImageUpdate = false;
+
+            if (imageUrl && imageUrl.includes("w60-h60")) {
+                imageUrl = imageUrl.replace("w60-h60", "w400-h400");
+                song.image = imageUrl;
+                needsImageUpdate = true;
+            }
+
+            if (savedData && savedData.image_blob && !needsImageUpdate) {
                 imageUrl = URL.createObjectURL(savedData.image_blob);
             } else if (imageUrl && imageUrl.includes("w60-h60")) {
+                // This branch is now redundant due to the check above but kept for safety
                 imageUrl = imageUrl.replace("w60-h60", "w400-h400");
             }
 
@@ -1137,6 +1152,7 @@
             if (savedData && savedData.blob) {
                 player.src = URL.createObjectURL(savedData.blob);
                 if (autoPlay) player.play().catch(() => set_play_state("play"));
+                if (needsImageUpdate) saveBlob(song); // Fix low-res image for saved song
             } else {
                 const fetchType = song.resultType || "song";
                 fetch(`/load_song?id=${id}&type=${fetchType}`)
