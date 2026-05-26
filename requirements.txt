@@ -2,5 +2,4 @@ Flask
 flask-cors
 requests
 beautifulsoup4
-ytmusicapi
-pytubefix
+yt-dlp
