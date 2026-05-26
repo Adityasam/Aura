@@ -21,7 +21,6 @@
     <meta name="theme-color" content="#ff6f62">
     <link rel="icon" href="{{ url_for('static', filename='icons/icon-192.png') }}">
     <script src="/static/js/myToastr.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/color-thief/2.3.0/color-thief.umd.js"></script>
 
     <style>
         :root {
@@ -386,13 +385,20 @@
         }
 
         .mini-player {
-            background: rgba(30, 30, 38, 0.9);
-            backdrop-filter: blur(20px);
-            -webkit-backdrop-filter: blur(20px);
-            box-shadow: 0 -15px 35px rgba(0, 0, 0, 0.5);
-            border-top: 1px solid rgba(255, 255, 255, 0.05);
-            padding: 0.8rem 2rem;
-            border-radius: 2rem 2rem 0 0;
+            background: rgba(24, 24, 31, 0.8);
+            backdrop-filter: blur(30px);
+            -webkit-backdrop-filter: blur(30px);
+            box-shadow: 0 -15px 40px rgba(0, 0, 0, 0.6);
+            border-top: 1px solid rgba(255, 255, 255, 0.08);
+            padding: 1rem 2rem;
+            border-radius: 3rem 3rem 0 0;
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            z-index: 1100;
+            transform: translateY(100%);
+            transition: transform 0.6s cubic-bezier(0.16, 1, 0.3, 1);
         }
 
         .mini-progress-container {
@@ -484,8 +490,6 @@
             .online-list-container, .offline-list-container { width: 95vw; padding: 1rem 1rem 8rem; }
         }
 
-
-
         .mini-player.active {
             transform: translateY(0);
         }
@@ -536,23 +540,6 @@
             font-size: 1.8rem;
         }
 
-        /* Accent glow effect */
-        .main-image-box::after {
-            content: '';
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            width: 100%;
-            height: 100%;
-            border-radius: 50%;
-            background: var(--orange);
-            filter: blur(60px);
-            opacity: 0.15;
-            z-index: -1;
-            transition: background 0.8s ease;
-        }
-
         .slider {
             width: 20px;
             height: 20px;
@@ -579,7 +566,7 @@
             display: flex;
             flex-direction: column;
             gap: 0.6rem;
-            padding: 1rem 2rem 0rem;
+            padding: 1rem 2rem 8rem;
             animation: slideInUp 0.8s cubic-bezier(0.16, 1, 0.3, 1);
         }
 
@@ -862,7 +849,6 @@
     const noresult = document.getElementById("no-result");
     const noresult_offline = document.getElementById("no-result-offline");
     const songloader = document.getElementById("song-loading");
-    const colorThief = new ColorThief();
 
     const miniPlayer = document.getElementById("mini-player");
     const miniProgressBar = document.getElementById("mini-progress-bar");
@@ -874,46 +860,6 @@
     function toggleSideMenu() {
         document.getElementById("side-menu").classList.toggle("active");
         document.getElementById("side-menu-overlay").classList.toggle("active");
-    }
-
-    function updateAccentColor(imgElement) {
-        if (!imgElement || !imgElement.src) return;
-
-        if (imgElement.src.includes("bg.png")) {
-            resetAccentColor();
-            return;
-        }
-
-        if (imgElement.complete && imgElement.naturalWidth !== 0) {
-            try {
-                const color = colorThief.getColor(imgElement);
-                const r = color[0];
-                const g = color[1];
-                const b = color[2];
-                const primaryColor = `rgb(${r}, ${g}, ${b})`;
-                const secondaryColor = `rgb(${Math.min(r + 30, 255)}, ${Math.min(g + 30, 255)}, ${Math.min(b + 30, 255)})`;
-                
-                document.documentElement.style.setProperty('--orange', primaryColor);
-                document.documentElement.style.setProperty('--accent-gradient', `linear-gradient(135deg, ${primaryColor} 0%, ${secondaryColor} 100%)`);
-            } catch (e) {
-                console.error("Color extraction error:", e);
-                resetAccentColor();
-            }
-        } else {
-            imgElement.onload = function() {
-                updateAccentColor(imgElement);
-            };
-            imgElement.onerror = function() {
-                resetAccentColor();
-            };
-        }
-    }
-
-    function resetAccentColor() {
-        const defaultColor = "#ff6f62";
-        const defaultGradient = "linear-gradient(135deg, #ff6f62 0%, #ff8566 100%)";
-        document.documentElement.style.setProperty('--orange', defaultColor);
-        document.documentElement.style.setProperty('--accent-gradient', defaultGradient);
     }
 
     let current_state = "";
@@ -944,6 +890,21 @@
 
     async function saveBlob(song) {
         if (!db) return;
+        
+        // Add index for sorting if not present
+        if (!song.index) song.index = Date.now();
+        
+        // Fetch and save image as blob if not already saved
+        if (!song.image_blob && song.image) {
+            try {
+                const response = await fetch(song.image);
+                const blob = await response.blob();
+                song.image_blob = blob;
+            } catch (e) {
+                console.error("Failed to save image blob:", e);
+            }
+        }
+
         const tx = db.transaction('songs', 'readwrite');
         const store = tx.objectStore('songs');
         store.put(song, song.id);
@@ -987,7 +948,7 @@
                 return;
             }
             const exportData = songs.map(s => {
-                const { blob, ...rest } = s;
+                const { blob, image_blob, ...rest } = s;
                 return rest;
             });
             const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(exportData));
@@ -1152,8 +1113,14 @@
             });
 
             player.currentTime = 0;
+            
+            // Check for saved data in IndexedDB
+            const savedData = await loadBlob(id);
+            
             let imageUrl = song.image;
-            if (imageUrl && imageUrl.includes("w60-h60")) {
+            if (savedData && savedData.image_blob) {
+                imageUrl = URL.createObjectURL(savedData.image_blob);
+            } else if (imageUrl && imageUrl.includes("w60-h60")) {
                 imageUrl = imageUrl.replace("w60-h60", "w400-h400");
             }
 
@@ -1161,16 +1128,14 @@
             miniPlayerImg.crossOrigin = "anonymous";
             song_image.src = imageUrl || "/static/img/bg.png";
             miniPlayerImg.src = imageUrl || "/static/img/bg.png";
-            updateAccentColor(song_image);
 
             song_name.innerHTML = song.song_name || "Unknown Song";
             miniPlayerName.innerHTML = song.song_name || "Unknown Song";
             
             set_play_state(autoPlay ? "loading" : "play");
 
-            const data = await loadBlob(id);
-            if (data && data.blob) {
-                player.src = URL.createObjectURL(data.blob);
+            if (savedData && savedData.blob) {
+                player.src = URL.createObjectURL(savedData.blob);
                 if (autoPlay) player.play().catch(() => set_play_state("play"));
             } else {
                 const fetchType = song.resultType || "song";
@@ -1233,7 +1198,12 @@
             temp.setAttribute("data-song-id", song.id);
             if (currentSongId === song.id) temp.classList.add("selected");
 
-            temp.querySelector("img").src = song.image || "/static/img/bg.png";
+            let displayImage = song.image || "/static/img/bg.png";
+            if (mode === "offline" && song.image_blob) {
+                displayImage = URL.createObjectURL(song.image_blob);
+            }
+
+            temp.querySelector("img").src = displayImage;
             temp.querySelector(".song-name").innerHTML = song.song_name;
             temp.querySelector(".atrist-name").innerHTML = song.artist_name;
             temp.querySelector(".delbtn").setAttribute("data-id", song.id);
@@ -1255,6 +1225,10 @@
         const request = store.getAll();
         request.onsuccess = () => {
             savedSongs = request.result;
+            
+            // Sort by index (new to old)
+            savedSongs.sort((a, b) => (b.index || 0) - (a.index || 0));
+            
             if (currentMode === "offline") create_song_card();
         };
     }

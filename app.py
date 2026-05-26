@@ -165,6 +165,7 @@ def load_song():
         'outtmpl': os.path.join(SONGS_FOLDER, f'{songid}.%(ext)s'),
         'quiet': True,
         'no_warnings': True,
+        'ffmpeg_location': f'C:\\ffmpeg\\bin',
     }
 
     if request_type == 'song':
