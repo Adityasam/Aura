@@ -1,12 +1,15 @@
 function show_toast(message, type="success"){
-    document.getElementById("my-toastr").classList.remove("success");
-    document.getElementById("my-toastr").classList.remove("warning");
-    document.getElementById("my-toastr").classList.remove("show");
+    const toast = document.getElementById("my-toastr");
+    if (!toast) return;
 
-    document.getElementById("my-toastr").innerHTML = message;
-    document.getElementById("my-toastr").classList.add(type);
-    document.getElementById("my-toastr").classList.add("show");
+    toast.classList.remove("success", "warning", "error", "show");
+    void toast.offsetWidth; // Trigger reflow
+
+    toast.innerHTML = message;
+    toast.classList.add(type);
+    toast.classList.add("show");
+    
     setTimeout(() => {
-        document.getElementById("my-toastr").classList.remove("show");
-    }, 1000)
+        toast.classList.remove("show");
+    }, 2500);
 }
