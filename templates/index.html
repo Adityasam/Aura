@@ -3,591 +3,538 @@
 
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Music Player</title>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.0.1/css/all.min.css" />
-    <link href="https://fonts.googleapis.com/css2?family=Raleway:ital,wght@0,100..900;1,100..900&display=swap"
-        rel="stylesheet">
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet"
-        integrity="sha384-sRIl4kxILFvY47J16cr9ZwB07vP4J8+LH7qKQnuqkuIAvNWLzeN8tE5YBujZqJLB" crossorigin="anonymous">
-
-    <link href="/static/css/myToastr.css" rel="stylesheet">
-
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js"
-        integrity="sha384-FKyoEForCGlyvwx9Hj09JcYn3nv7wiPVlz7YYwJrWVcXK/BmnVDxM+D2scQbITxI"
-        crossorigin="anonymous"></script>
-
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Aura Premium Player</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.3/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
     <link rel="manifest" href="{{ url_for('static', filename='manifest.json') }}">
-    <meta name="theme-color" content="#ff6f62">
     <link rel="icon" href="{{ url_for('static', filename='icons/icon-192.png') }}">
     <script src="/static/js/myToastr.js"></script>
 
     <style>
         :root {
-            --orange: #ff6f62;
-            --dark-bg: #18181f;
-            --surface: #1e1e26;
-            --text-primary: #e0e0e6;
-            --text-secondary: #a0a0b0;
-            --accent-gradient: linear-gradient(135deg, var(--orange) 0%, #ff8566 100%);
-            --neo-shadow-light: rgba(255, 255, 255, 0.05);
-            --neo-shadow-dark: rgba(0, 0, 0, 0.5);
-            --neo-inset: inset 3px 3px 7px var(--neo-shadow-dark), inset -3px -3px 7px var(--neo-shadow-light);
-            --neo-flat: 8px 8px 16px var(--neo-shadow-dark), -8px -8px 16px var(--neo-shadow-light);
-            --neo-pressed: inset 6px 6px 12px var(--neo-shadow-dark), inset -6px -6px 12px var(--neo-shadow-light);
-            --neo-float: 12px 12px 24px rgba(0, 0, 0, 0.6), -8px -8px 24px rgba(255, 255, 255, 0.03);
-            --transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            --orange: #ff4d4d;
+            --blue: #4d8cff;
+            --dark-bg: #050505;
+            --surface: rgba(255, 255, 255, 0.05);
+            --surface-hover: rgba(255, 255, 255, 0.1);
+            --text-primary: #ffffff;
+            --text-secondary: #b0b0b0;
+            --accent-gradient: linear-gradient(135deg, var(--orange) 0%, #ff8c42 100%);
+            --glass: rgba(255, 255, 255, 0.07);
+            --glass-border: rgba(255, 255, 255, 0.1);
+            --shadow-lg: 0 25px 50px -12px rgba(0, 0, 0, 0.7);
+            --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            --radius-xl: 32px;
+            --radius-lg: 24px;
+            --radius-md: 16px;
         }
 
         * {
+            box-sizing: border-box;
             transition: var(--transition);
         }
 
         html,
         body {
             overscroll-behavior-y: contain;
-            background-color: var(--dark-bg);
+            background-color: transparent;
             color: var(--text-primary);
         }
 
         body {
-            font-family: 'Raleway', sans-serif;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             font-size: 14px;
             margin: 0;
             overflow-x: hidden;
-            background: radial-gradient(circle at top right, rgba(255, 111, 98, 0.05), transparent 400px),
-                        radial-gradient(circle at bottom left, rgba(255, 111, 98, 0.03), transparent 300px);
+            background: transparent;
             min-height: 100vh;
+            letter-spacing: -0.015em;
+        }
+
+        /* Background Blobs */
+        .bg-blobs {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            z-index: -10;
+            overflow: hidden;
+            background: var(--dark-bg);
+        }
+
+        .blob {
+            position: absolute;
+            width: 600px;
+            height: 600px;
+            border-radius: 50%;
+            filter: blur(80px);
+            opacity: 0.4;
+            animation: blob-float 25s infinite alternate;
+        }
+
+        .blob-orange {
+            background: radial-gradient(circle, var(--orange) 0%, transparent 70%);
+            top: -100px;
+            left: -100px;
+        }
+
+        .blob-blue {
+            background: radial-gradient(circle, var(--blue) 0%, transparent 70%);
+            bottom: -100px;
+            right: -100px;
+            animation-delay: -5s;
+        }
+
+        .blob-orange-2 {
+            background: radial-gradient(circle, var(--orange) 0%, transparent 70%);
+            bottom: 10%;
+            left: 20%;
+            width: 300px;
+            height: 300px;
+            animation-delay: -10s;
+        }
+
+        .blob-blue-2 {
+            background: radial-gradient(circle, var(--blue) 0%, transparent 70%);
+            top: 20%;
+            right: 15%;
+            width: 400px;
+            height: 400px;
+            animation-delay: -15s;
+        }
+
+        @keyframes blob-float {
+            0% { transform: translate(0, 0) scale(1); }
+            33% { transform: translate(30px, -50px) scale(1.1); }
+            66% { transform: translate(-20px, 20px) scale(0.9); }
+            100% { transform: translate(0, 0) scale(1); }
         }
 
         .app-header {
             display: flex;
             align-items: center;
-            gap: 1.5rem;
-            padding: 1.5rem 2rem;
-            max-width: 800px;
+            gap: 1rem;
+            padding: 1.2rem 1.5rem;
+            max-width: 850px;
             margin: 0 auto;
-            animation: slideInDown 0.8s cubic-bezier(0.16, 1, 0.3, 1);
             position: sticky;
             top: 0;
             z-index: 1000;
-            background: rgba(24, 24, 31, 0.8);
-            backdrop-filter: blur(15px);
-            -webkit-backdrop-filter: blur(15px);
-            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            background: transparent;
+            backdrop-filter: blur(30px) saturate(180%);
+            -webkit-backdrop-filter: blur(30px) saturate(180%);
+            border-bottom-left-radius: var(--radius-lg);
+            border-bottom-right-radius: var(--radius-lg);
         }
 
         .header-burger {
-            width: 55px;
-            height: 55px;
-            background: var(--surface);
-            border-radius: 1.2rem;
-            box-shadow: var(--neo-flat);
+            width: 44px;
+            height: 44px;
+            background: var(--glass);
+            border-radius: var(--radius-md);
             display: flex;
             align-items: center;
             justify-content: center;
-            color: var(--orange);
+            color: var(--text-primary);
             cursor: pointer;
-            border: 1px solid rgba(255, 255, 255, 0.02);
+            border: 1px solid var(--glass-border);
             flex-shrink: 0;
         }
 
         .header-burger:hover {
-            box-shadow: var(--neo-pressed);
-            transform: scale(0.95);
+            background: var(--surface-hover);
+            transform: scale(1.05);
         }
 
         .header-search {
             flex-grow: 1;
         }
 
-        .nav-bar {
-            display: flex;
-            justify-content: center;
-            gap: 1rem;
-            padding: 0 2rem 2rem;
-            max-width: 800px;
-            margin: 0 auto;
-            animation: slideInDown 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+        .header-search .d-flex {
+            background: var(--glass);
+            border-radius: var(--radius-md);
+            padding: 4px 8px;
+            border: 1px solid var(--glass-border);
         }
 
-        .play-mode {
-            background: var(--surface) !important;
-            box-shadow: var(--neo-flat);
-            padding: 0.8rem 1.5rem;
-            border-radius: 1.2rem;
-            font-weight: 700;
-            color: var(--text-secondary);
-            cursor: pointer;
-            border: 1px solid rgba(255, 255, 255, 0.02) !important;
-            flex: 1;
-            text-align: center;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-
-        .play-mode.active {
-            box-shadow: var(--neo-pressed) !important;
-            color: var(--orange) !important;
-        }
-
-        .playback-options {
-            display: flex;
-            justify-content: center;
-            gap: 1.5rem;
-            margin-top: 1.5rem;
-        }
-
-        .loop-type {
-            background: var(--surface);
-            box-shadow: var(--neo-flat);
-            width: 45px;
-            height: 45px;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: var(--text-secondary);
-            cursor: pointer;
-            border: 1px solid rgba(255, 255, 255, 0.02);
-        }
-
-        .loop-type.active {
-            box-shadow: var(--neo-pressed);
-            color: var(--orange);
-        }
-
-        .main-song-container {
-            margin: 0 auto 2rem;
-            max-width: 500px;
-            padding: 2.5rem;
-            background: var(--surface);
-            border-radius: 3rem;
-            box-shadow: var(--neo-flat);
-            border: 1px solid rgba(255, 255, 255, 0.03);
-            animation: slideInDown 0.8s cubic-bezier(0.16, 1, 0.3, 1);
-            position: relative;
+        .header-search .d-flex:focus-within {
+            border-color: rgba(255, 77, 77, 0.5);
+            background: rgba(255, 255, 255, 0.1);
         }
 
         input {
-            border-radius: 1.5rem !important;
-            padding: 0.8rem 1.5rem !important;
-            background-color: var(--surface) !important;
-            border: 1px solid rgba(255, 255, 255, 0.02) !important;
-            box-shadow: var(--neo-inset) !important;
+            background: transparent !important;
+            border: none !important;
+            box-shadow: none !important;
             color: var(--text-primary) !important;
-            height: 3.5rem !important;
-            font-size: 1rem !important;
+            height: 38px !important;
+            font-size: 0.95rem !important;
+            padding: 0 1rem !important;
         }
 
         input::placeholder {
             color: var(--text-secondary) !important;
-            opacity: 0.7;
+            opacity: 0.5;
         }
 
-        input:focus {
-            box-shadow: var(--neo-pressed) !important;
-            border-color: rgba(255, 111, 98, 0.2) !important;
-        }
-
-        .offline-search-container {
-            background: var(--surface);
-            box-shadow: var(--neo-inset);
-            border-radius: 1.5rem;
-            padding: 0.5rem 1.5rem;
-            margin: 0 2rem 2rem;
-            display: flex;
+        .search-btn {
+            background: transparent !important;
+            width: 38px !important;
+            height: 38px !important;
+            border-radius: var(--radius-md) !important;
+            color: var(--text-secondary) !important;
+            border: none !important;
+            display: flex !important;
             align-items: center;
-            gap: 1rem;
-            border: 1px solid rgba(255, 255, 255, 0.02);
+            justify-content: center;
         }
 
-        .offline-search-container i {
-            color: var(--orange);
+        .search-btn:hover {
+            color: var(--orange) !important;
+            background: rgba(255, 77, 77, 0.1) !important;
         }
 
-        .record-player-container {
-            width: 250px;
-            height: 250px;
+        .nav-bar {
+            display: flex;
+            justify-content: center;
+            gap: 0.8rem;
+            padding: 1rem 1.5rem;
+            max-width: 850px;
             margin: 0 auto;
-            position: relative;
+        }
+
+        .play-mode {
+            background: var(--glass);
+            padding: 0.7rem 1.2rem;
+            border-radius: var(--radius-md);
+            font-weight: 600;
+            color: var(--text-secondary);
+            cursor: pointer;
+            border: 1px solid var(--glass-border);
+            flex: 1;
+            text-align: center;
+            font-size: 0.85rem;
             display: flex;
             align-items: center;
             justify-content: center;
+            backdrop-filter: blur(10px);
         }
 
-        .vinyl-disc {
-            width: 100%;
-            height: 100%;
-            border-radius: 50%;
-            background: #121212;
-            box-shadow: var(--neo-float);
-            display: flex;
-            align-items: center;
-            justify-content: center;
+        .play-mode.active {
+            background: var(--orange);
+            color: white;
+            border-color: transparent;
+            box-shadow: 0 8px 20px rgba(255, 77, 77, 0.3);
+        }
+
+        .main-song-container {
+            margin: 0 auto 2rem;
+            max-width: 420px;
+            padding: 0;
+            background: var(--glass);
+            border-radius: var(--radius-xl);
+            border: 1px solid var(--glass-border);
+            box-shadow: var(--shadow-lg);
             position: relative;
-            border: 8px solid #222;
-            background-image: repeating-radial-gradient(
-                circle,
-                #121212,
-                #121212 2px,
-                #1a1a1a 3px,
-                #121212 4px
-            );
+            overflow: hidden;
+            backdrop-filter: blur(40px);
+            -webkit-backdrop-filter: blur(40px);
         }
 
-        .vinyl-disc::before {
-            content: '';
-            position: absolute;
-            width: 100%;
-            height: 100%;
-            border-radius: 50%;
-            background: linear-gradient(135deg, transparent 40%, rgba(255,255,255,0.05) 50%, transparent 60%);
-            pointer-events: none;
-            z-index: 2;
+        .player-thumbnail-container {
+            width: 80%;
+            margin: 1.5rem auto 0;
+            aspect-ratio: 1/1;
+            position: relative;
+            overflow: hidden;
+            border-radius: var(--radius-lg);
+            box-shadow: 0 15px 35px rgba(0,0,0,0.5);
         }
 
         .main-image {
-            width: 100px;
-            height: 100px;
-            border-radius: 50%;
+            width: 100%;
+            height: 100%;
             object-fit: cover;
-            box-shadow: 0 0 10px rgba(0,0,0,0.8);
-            border: 3px solid #333;
-            z-index: 1;
-        }
-
-        .vinyl-disc.playing {
-            animation: rotateVinyl 4s linear infinite;
-        }
-
-        .vinyl-disc.paused {
-            animation-play-state: paused;
-        }
-
-        .record-hole {
-            position: absolute;
-            width: 12px;
-            height: 12px;
-            background: var(--surface);
-            border-radius: 50%;
-            z-index: 3;
-            box-shadow: inset 2px 2px 5px rgba(0,0,0,0.5);
-        }
-
-        .tonearm {
-            position: absolute;
-            top: -15px;
-            right: -25px;
-            width: 80px;
-            height: 150px;
-            z-index: 10;
-            pointer-events: none;
-            transform-origin: 80% 10%;
-            transform: rotate(-15deg);
-            transition: transform 0.8s cubic-bezier(0.4, 0, 0.2, 1);
-        }
-
-        .tonearm.active {
-            transform: rotate(15deg);
-        }
-
-        .tonearm-base {
-            position: absolute;
-            top: 0;
-            right: 10%;
-            width: 35px;
-            height: 35px;
-            background: #333;
-            border-radius: 50%;
-            box-shadow: var(--neo-flat);
-        }
-
-        .tonearm-rod {
-            position: absolute;
-            top: 18px;
-            right: 22px;
-            width: 6px;
-            height: 120px;
-            background: linear-gradient(to right, #444, #666, #444);
-            border-radius: 4px;
-        }
-
-        .tonearm-head {
-            position: absolute;
-            bottom: 0;
-            right: 8px;
-            width: 22px;
-            height: 30px;
-            background: #222;
-            border-radius: 4px;
-            transform: rotate(10deg);
-        }
-
-        @keyframes rotateVinyl {
-            from { transform: rotate(0deg); }
-            to { transform: rotate(360deg); }
+            transition: transform 0.5s ease;
         }
 
         .main-song-info-block {
-            padding: 2rem 0 0;
+            padding: 1.5rem;
             text-align: center;
+            background: linear-gradient(to bottom, transparent, rgba(0,0,0,0.4));
         }
 
         .main-song-name {
-            font-size: 1.5rem;
+            font-size: 1.2rem;
             font-weight: 800;
             color: var(--text-primary);
-            margin-bottom: 2rem;
-            letter-spacing: -0.5px;
+            margin-bottom: 1.2rem;
+            letter-spacing: -0.03em;
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
         }
 
         .control-btn {
-            font-size: 1.5rem;
+            font-size: 1.1rem;
             color: var(--text-secondary);
             cursor: pointer;
-            width: 50px;
-            height: 50px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            border-radius: 50%;
-            background: var(--surface);
-            box-shadow: var(--neo-flat);
-        }
-
-        .control-btn:hover {
-            color: var(--orange);
-            box-shadow: var(--neo-pressed);
-            transform: scale(0.95);
-        }
-
-        .play-btn-main {
-            width: 85px;
-            height: 85px;
-            background: var(--surface);
-            box-shadow: var(--neo-flat);
-            border-radius: 50%;
-            padding: 25px;
-            cursor: pointer;
-            border: 2px solid rgba(255, 111, 98, 0.1);
-        }
-
-        .play-btn-main:hover {
-            box-shadow: var(--neo-pressed);
-            transform: scale(0.95);
-        }
-
-        .slider-track {
-            height: 10px;
-            background: var(--surface);
-            border-radius: 10px;
-            box-shadow: var(--neo-inset);
-            position: relative;
-            cursor: pointer;
-            margin: 2rem 0 0.5rem;
-        }
-
-        .slider-fill {
-            background: var(--accent-gradient);
-            box-shadow: 0 0 15px rgba(255, 111, 98, 0.3);
-            border-radius: 10px;
-            height: 100%;
-            width: 0%;
-            position: relative;
-        }
-
-        .slider {
-            width: 22px;
-            height: 22px;
-            background: #fff;
-            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
-            border-radius: 50%;
-            position: absolute;
-            top: 50%;
-            transform: translate(-50%, -50%);
-            left: 0;
-            pointer-events: none;
-            border: 4px solid var(--orange);
-        }
-
-        .list-item-box {
-            background: var(--surface);
-            border-radius: 2rem;
-            padding: 1.2rem;
-            margin-bottom: 1.5rem;
-            box-shadow: var(--neo-flat);
-            border: 1px solid rgba(255, 255, 255, 0.02);
-            display: flex;
-            align-items: center;
-            gap: 1.2rem;
-            cursor: pointer;
-        }
-
-        .list-item-box:hover {
-            transform: translateY(-3px);
-            box-shadow: 10px 10px 20px var(--neo-shadow-dark), -8px -8px 20px var(--neo-shadow-light);
-        }
-
-        .list-item-box.selected {
-            box-shadow: var(--neo-pressed);
-            background: rgba(255, 111, 98, 0.03);
-            border-color: rgba(255, 111, 98, 0.15);
-        }
-
-        .search-btn {
-            background: var(--surface) !important;
-            width: 3.5rem !important;
-            height: 3.5rem !important;
-            border-radius: 1.2rem !important;
-            box-shadow: var(--neo-flat) !important;
-            color: var(--orange) !important;
-            border: none !important;
-        }
-
-        .side-menu {
-            background: rgba(30, 30, 38, 0.85);
-            backdrop-filter: blur(25px);
-            -webkit-backdrop-filter: blur(25px);
-            border-right: 1px solid rgba(255, 255, 255, 0.05);
-            padding: 2.5rem;
-            width: 320px;
-        }
-
-        .menu-item {
-            background: var(--surface);
-            box-shadow: var(--neo-flat);
-            margin: 0 0 1.5rem 0;
-            padding: 1.2rem;
-            border-radius: 1.2rem;
-            display: flex;
-            align-items: center;
-            gap: 1rem;
-            font-weight: 600;
-            color: var(--text-primary);
-            cursor: pointer;
-        }
-
-        .menu-item i {
             width: 40px;
             height: 40px;
             display: flex;
             align-items: center;
             justify-content: center;
-            background: var(--surface);
-            box-shadow: var(--neo-inset);
-            border-radius: 0.8rem;
+            border-radius: 50%;
+        }
+
+        .control-btn:hover {
+            color: var(--text-primary);
+            background: rgba(255, 255, 255, 0.1);
+            transform: scale(1.1);
+        }
+
+        .play-btn-main {
+            width: 60px;
+            height: 60px;
+            background: var(--orange);
+            border-radius: 50%;
+            padding: 15px;
+            cursor: pointer;
+            box-shadow: 0 10px 25px rgba(255, 77, 77, 0.4);
+        }
+
+        .play-btn-main:hover {
+            transform: scale(1.1);
+            box-shadow: 0 12px 30px rgba(255, 77, 77, 0.5);
+        }
+
+        .song-slider-container {
+            padding: 1.2rem 0 0.4rem;
+        }
+
+        .slider-track {
+            height: 5px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            position: relative;
+            cursor: pointer;
+        }
+
+        .slider-fill {
+            background: var(--accent-gradient);
+            border-radius: 10px;
+            height: 100%;
+            width: 0%;
+        }
+
+        .slider {
+            width: 12px;
+            height: 12px;
+            background: white;
+            border-radius: 50%;
+            position: absolute;
+            top: 50%;
+            transform: translate(-50%, -50%);
+            box-shadow: 0 0 15px rgba(255, 77, 77, 0.6);
+            pointer-events: none;
+        }
+
+        .time-stamp-container {
+            display: flex;
+            justify-content: space-between;
+            color: var(--text-secondary);
+            font-size: 0.75rem;
+            font-weight: 600;
+            margin-top: 4px;
+        }
+
+        .playback-options {
+            display: flex;
+            justify-content: center;
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+
+        .loop-type {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--text-secondary);
+            cursor: pointer;
+            font-size: 0.8rem;
+            background: transparent;
+        }
+
+        .loop-type:hover {
+            background: rgba(255, 255, 255, 0.05);
+            color: var(--text-primary);
+        }
+
+        .loop-type.active {
             color: var(--orange);
+            background: rgba(255, 77, 77, 0.08);
+        }
+
+        .playback-options-group {
+            z-index: 5;
+            padding-left: 0.5rem;
+        }
+
+        .online-list-container, .offline-list-container {
+            width: 100%;
+            max-width: 850px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            padding: 0 1.5rem 8rem;
+        }
+
+        .list-item-box {
+            background: var(--glass);
+            border-radius: var(--radius-lg);
+            padding: 8px 16px;
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            cursor: pointer;
+            border: 1px solid var(--glass-border);
+            backdrop-filter: blur(10px);
+        }
+
+        .list-item-box:hover {
+            background: var(--surface-hover);
+            transform: translateX(5px);
+            border-color: rgba(255, 255, 255, 0.2);
+        }
+
+        .list-item-box.selected {
+            background: rgba(255, 77, 77, 0.1);
+            border-color: rgba(255, 77, 77, 0.3);
+        }
+
+        .list-item-box img {
+            width: 48px;
+            height: 48px;
+            border-radius: var(--radius-md);
+            object-fit: cover;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+        }
+
+        .song-info {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .song-name {
+            font-weight: 700;
+            color: var(--text-primary);
+            font-size: 0.95rem;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            margin-bottom: 2px;
+        }
+
+        .atrist-name {
+            color: var(--text-secondary);
+            font-size: 0.8rem;
+            font-weight: 500;
+        }
+
+        .delbtn {
+            width: 32px;
+            height: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: var(--radius-md);
+            color: var(--text-secondary);
+            opacity: 0.6;
+            font-size: 0.9rem;
+        }
+
+        .delbtn:hover {
+            background: rgba(255, 77, 77, 0.2);
+            color: var(--orange);
+            opacity: 1;
+        }
+
+        .side-menu {
+            background: rgba(5, 5, 5, 0.8);
+            backdrop-filter: blur(40px);
+            border-right: 1px solid var(--glass-border);
+            width: 280px;
+            padding: 2rem 1.5rem;
+            position: fixed;
+            top: 0;
+            left: 0;
+            height: 100vh;
+            z-index: 2000;
+            transform: translateX(-100%);
+            box-shadow: 25px 0 50px rgba(0,0,0,0.6);
+        }
+
+        .side-menu.active {
+            transform: translateX(0);
+        }
+
+        .menu-header {
+            font-size: 1.4rem;
+            margin-bottom: 2.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            font-weight: 800;
+            letter-spacing: -0.04em;
+        }
+
+        .menu-item {
+            padding: 0.8rem 1rem;
+            margin-bottom: 0.5rem;
+            border-radius: var(--radius-md);
+            font-size: 0.95rem;
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            cursor: pointer;
+            color: var(--text-secondary);
+            font-weight: 600;
+        }
+
+        .menu-item:hover {
+            background: var(--glass);
+            color: var(--text-primary);
+            transform: translateX(5px);
+        }
+
+        .menu-item i {
+            color: var(--orange);
+            font-size: 1.1rem;
+            width: 24px;
+            text-align: center;
         }
 
         .mini-player {
-            background: rgba(24, 24, 31, 0.8);
-            backdrop-filter: blur(30px);
-            -webkit-backdrop-filter: blur(30px);
-            box-shadow: 0 -15px 40px rgba(0, 0, 0, 0.6);
-            border-top: 1px solid rgba(255, 255, 255, 0.08);
-            padding: 1rem 2rem;
-            border-radius: 3rem 3rem 0 0;
+            background: rgba(10, 10, 10, 0.7);
+            backdrop-filter: blur(30px) saturate(180%);
+            -webkit-backdrop-filter: blur(30px) saturate(180%);
+            border-top: 1px solid var(--glass-border);
+            padding: 0.6rem 1.5rem;
+            height: 70px;
             position: fixed;
             bottom: 0;
             left: 0;
             width: 100%;
             z-index: 1100;
             transform: translateY(100%);
-            transition: transform 0.6s cubic-bezier(0.16, 1, 0.3, 1);
-        }
-
-        .mini-progress-container {
-            height: 5px;
-            background: rgba(255, 255, 255, 0.05);
-            border-radius: 10px;
-            margin-bottom: 5px;
-        }
-
-        .result-type-container {
             display: flex;
-            gap: 1.5rem;
-            padding: 0 2rem 2rem;
-            max-width: 600px;
-            margin: 0 auto;
-        }
-
-        .result-type {
-            background: var(--surface);
-            box-shadow: var(--neo-flat);
-            border-radius: 1.5rem;
-            padding: 1.2rem;
-            flex: 1;
-            text-align: center;
-            cursor: pointer;
-            color: var(--text-secondary);
-        }
-
-        .result-type.active {
-            box-shadow: var(--neo-pressed);
-            color: var(--orange);
-            background: rgba(255, 111, 98, 0.03);
-        }
-
-        .delbtn {
-            width: 45px;
-            height: 45px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            border-radius: 1rem;
-            background: var(--surface);
-            box-shadow: var(--neo-flat);
-            color: var(--text-secondary);
-            transition: var(--transition);
-        }
-
-        .delbtn:hover {
-            box-shadow: var(--neo-pressed);
-            color: #ff4d4d;
-        }
-
-        .close-menu {
-            width: 45px;
-            height: 45px;
-            border-radius: 1rem;
-            background: var(--surface);
-            box-shadow: var(--neo-flat);
-            border: none;
-            color: var(--text-secondary);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-
-        .close-menu:hover {
-            box-shadow: var(--neo-pressed);
-            color: var(--orange);
-        }
-
-        @keyframes slideInDown {
-            from { opacity: 0; transform: translateY(-30px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-
-        @keyframes slideInUp {
-            from { opacity: 0; transform: translateY(30px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-
-        /* Responsive adjustments */
-        @media (max-width: 768px) {
-            .app-header { padding: 1rem 1rem 0rem 1rem; gap: 1rem; }
-            .header-burger { width: 50px; height: 50px; }
-            .nav-bar { padding: 1rem 1rem 1.5rem; }
-            .main-song-container { margin: 1rem; padding: 1.5rem; }
-            .main-image-box { width: 220px; height: 220px; }
-            .playback-options { gap: 1rem; }
-            .online-list-container, .offline-list-container { width: 95vw; padding: 1rem 1rem 8rem; }
+            flex-direction: column;
+            box-shadow: 0 -15px 35px rgba(0,0,0,0.5);
         }
 
         .mini-player.active {
@@ -595,120 +542,55 @@
         }
 
         .mini-progress-container {
-            height: 4px;
-            background: rgba(255, 255, 255, 0.05);
-            border-radius: 10px;
-            margin-bottom: 8px;
-            overflow: hidden;
+            height: 3px;
+            background: rgba(255,255,255,0.05);
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
         }
 
         .mini-progress-bar {
             height: 100%;
-            background: var(--accent-gradient);
+            background: var(--orange);
             width: 0%;
-            transition: width 0.1s linear;
         }
 
         .mini-player-img {
-            width: 55px;
-            height: 55px;
-            border-radius: 1.2rem;
+            width: 44px;
+            height: 44px;
+            border-radius: var(--radius-md);
             object-fit: cover;
-            box-shadow: 0 5px 15px rgba(0,0,0,0.4);
-            border: 1px solid rgba(255,255,255,0.1);
+            border: 1px solid var(--glass-border);
         }
 
         .mini-player-name {
-            font-weight: 800;
-            font-size: 1rem;
+            font-size: 0.9rem;
+            font-weight: 700;
             color: var(--text-primary);
-            letter-spacing: -0.3px;
+            letter-spacing: -0.02em;
         }
 
-        .menu-header span {
+        .offline-search-container {
+            background: var(--glass);
+            border-radius: var(--radius-lg);
+            padding: 0 1.2rem;
+            margin: 0 1.5rem 1rem;
+            border: 1px solid var(--glass-border);
+            height: 40px;
             display: flex;
             align-items: center;
-            gap: 1rem;
-            background: var(--accent-gradient);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            font-size: 2.2rem;
+            gap: 10px;
         }
 
-        .menu-header i {
-            -webkit-text-fill-color: var(--orange);
-            font-size: 1.8rem;
+        .offline-search-container:focus-within {
+            border-color: rgba(255, 77, 77, 0.4);
+            background: rgba(255, 255, 255, 0.1);
         }
 
-        .slider {
-            width: 20px;
-            height: 20px;
-            background: #fff;
-            box-shadow: 0 0 15px rgba(255, 111, 98, 0.5);
-            border-radius: 50%;
-            position: absolute;
-            top: 50%;
-            transform: translate(-50%, -50%);
-            left: 0;
-            pointer-events: none;
-            border: 5px solid var(--orange);
-            transition: transform 0.2s ease, box-shadow 0.2s ease;
-        }
-
-        .slider-track:hover .slider {
-            transform: translate(-50%, -50%) scale(1.2);
-            box-shadow: 0 0 25px rgba(255, 111, 98, 0.8);
-        }
-
-        .online-list-container, .offline-list-container {
-            width: 100%;
-            max-width: 800px;
-            display: flex;
-            flex-direction: column;
-            gap: 0.6rem;
-            padding: 1rem 2rem 8rem;
-            animation: slideInUp 0.8s cubic-bezier(0.16, 1, 0.3, 1);
-        }
-
-        .list-item-box img {
-            width: 65px;
-            height: 65px;
-            object-fit: cover;
-            border-radius: 1.2rem;
-            box-shadow: var(--neo-flat);
-        }
-
-        .song-info {
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            flex-grow: 1;
-            min-width: 0;
-        }
-
-        .song-name {
-            font-weight: 700;
-            color: var(--text-primary);
-            font-size: 1.1rem;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-        }
-
-        .atrist-name {
+        .offline-search-container i {
             color: var(--text-secondary);
             font-size: 0.9rem;
-            margin-top: 2px;
-        }
-
-        .time-stamp-container {
-            display: flex;
-            justify-content: space-between;
-            padding: 0 0.5rem;
-            font-weight: 700;
-            color: var(--text-secondary);
-            font-size: 0.8rem;
-            margin-top: 0.5rem;
         }
 
         .side-menu-overlay {
@@ -718,11 +600,10 @@
             width: 100vw;
             height: 100vh;
             background-color: rgba(0, 0, 0, 0.7);
-            backdrop-filter: blur(8px);
-            z-index: 999;
+            backdrop-filter: blur(10px);
+            z-index: 1500;
             opacity: 0;
             pointer-events: none;
-            transition: opacity 0.4s ease;
         }
 
         .side-menu-overlay.active {
@@ -730,48 +611,106 @@
             pointer-events: auto;
         }
 
-        .side-menu {
-            position: fixed;
-            top: 0;
-            left: 0;
-            height: 100vh;
-            width: 320px;
-            z-index: 9999;
-            transform: translateX(-100%);
-            transition: transform 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+        .result-type-container {
+            display: flex;
+            gap: 0.8rem;
+            padding: 0 1.5rem 1rem;
+            max-width: 850px;
+            margin: 0 auto;
         }
 
-        .side-menu.active {
-            transform: translateX(0);
+        .result-type {
+            background: var(--glass);
+            border-radius: var(--radius-md);
+            padding: 0.6rem;
+            flex: 1;
+            text-align: center;
+            cursor: pointer;
+            color: var(--text-secondary);
+            font-size: 0.85rem;
+            border: 1px solid var(--glass-border);
+            font-weight: 700;
+            letter-spacing: 0.02em;
         }
 
-        .menu-header {
-            font-size: 2rem;
-            font-weight: 900;
+        .result-type.active {
+            background: rgba(255, 77, 77, 0.1);
             color: var(--orange);
-            margin-bottom: 3.5rem;
+            border-color: rgba(255, 77, 77, 0.3);
+        }
+
+        .close-menu {
+            width: 36px;
+            height: 36px;
+            border-radius: var(--radius-md);
+            background: var(--glass);
+            border: none;
+            color: var(--text-secondary);
             display: flex;
             align-items: center;
-            justify-content: space-between;
-        }
-
-        #no-result, #no-result-offline {
-            text-align: center;
-            padding: 4rem;
-            color: var(--text-secondary);
-            font-weight: 600;
-            font-style: italic;
-        }
-
-        #song-loading {
-            display: flex;
             justify-content: center;
-            padding: 2rem;
+        }
+
+        /* Toast Notification */
+        .my-toast-container {
+            position: fixed;
+            bottom: 100px;
+            left: 50%;
+            transform: translateX(-50%) translateY(20px);
+            background: rgba(20, 20, 25, 0.9);
+            backdrop-filter: blur(20px);
+            border: 1px solid var(--glass-border);
+            color: var(--text-primary);
+            padding: 12px 24px;
+            border-radius: var(--radius-md);
+            font-weight: 600;
+            z-index: 3000;
+            opacity: 0;
+            pointer-events: none;
+            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            white-space: nowrap;
+        }
+
+        .my-toast-container.show {
+            opacity: 1;
+            transform: translateX(-50%) translateY(0);
+            pointer-events: auto;
+        }
+
+        .my-toast-container.success {
+            border-bottom: 4px solid #4caf50;
+        }
+
+        .my-toast-container.warning {
+            border-bottom: 4px solid #ff9800;
+        }
+
+        .my-toast-container.error {
+            border-bottom: 4px solid var(--orange);
+        }
+
+        /* Mobile adjustments */
+        @media (max-width: 768px) {
+            .app-header { padding: 1rem; }
+            .nav-bar { padding: 0.8rem 1rem; }
+            .main-song-container { margin: 1rem; max-width: none; border-radius: var(--radius-xl); }
+            .online-list-container, .offline-list-container { padding: 0 1rem 8rem; }
+            .list-item-box { padding: 10px 14px; border-radius: var(--radius-lg); }
+            .mini-player { height: 65px; padding: 0.5rem 1rem; }
         }
     </style>
 </head>
 
 <body>
+    <!-- Background Blobs -->
+    <div class="bg-blobs">
+        <div class="blob blob-orange"></div>
+        <div class="blob blob-blue"></div>
+        <div class="blob blob-orange-2"></div>
+        <div class="blob blob-blue-2"></div>
+    </div>
+
     <!-- Side Menu -->
     <div class="side-menu-overlay" id="side-menu-overlay" onclick="toggleSideMenu()"></div>
     <div class="side-menu" id="side-menu">
@@ -789,8 +728,8 @@
             <i class="fas fa-file-import"></i>
             <span>Import Backup</span>
         </div>
-        <div class="mt-auto p-2" style="font-size: 0.8rem; color: var(--text-secondary); text-align: center; opacity: 0.5;">
-            Aura Premium Music Player v2.0
+        <div class="mt-auto p-2" style="font-size: 0.75rem; color: var(--text-secondary); text-align: center; opacity: 0.4;">
+            Aura Premium v2.1
         </div>
         <input type="file" id="import-file" hidden accept=".json" onchange="process_import(event)">
     </div>
@@ -801,12 +740,12 @@
             <i class="fas fa-bars"></i>
         </div>
         <div class="header-search">
-            <div class="d-flex gap-3">
+            <div class="d-flex align-items-center">
                 <input type="text" class="form-control" id="search"
-                    placeholder="Search for music..." autocomplete="off"
+                    placeholder="Search music..." autocomplete="off"
                     onkeypress="if(event.key==='Enter') search_song()">
                 <button class="search-btn" onclick="search_song()">
-                    <i class="fas fa-search fa-lg"></i>
+                    <i class="fas fa-search"></i>
                 </button>
             </div>
         </div>
@@ -815,10 +754,10 @@
     <!-- Navigation Bar -->
     <nav class="nav-bar">
         <div id="play-offline" class="play-mode active" onclick="change_mode('offline')">
-            <i class="fas fa-layer-group me-2"></i> My Library
+            Library
         </div>
         <div id="play-online" class="play-mode" onclick="change_mode('online')">
-            <i class="fas fa-compass me-2"></i> Discovery
+            Discovery
         </div>
     </nav>
 
@@ -826,29 +765,36 @@
         <div class="main-song-container">
             <div class="main-image-container">
                 <audio src="" hidden id="audio_player"></audio>
-                <div class="record-player-container">
-                    <div class="vinyl-disc" id="vinyl-record">
-                        <img id="song-image" src="/static/img/bg.png" class="main-image" alt="">
-                        <div class="record-hole"></div>
-                    </div>
-                    <div class="tonearm" id="tonearm">
-                        <div class="tonearm-base"></div>
-                        <div class="tonearm-rod"></div>
-                        <div class="tonearm-head"></div>
-                    </div>
+                <div class="player-thumbnail-container">
+                    <img id="song-image" src="/static/img/bg.png" class="main-image" alt="">
                 </div>
                 <div class="main-song-info-block">
                     <div class="main-song-name" id="song-name">Select a Song</div>
-                    <div class="d-flex align-items-center justify-content-center gap-5">
-                        <i class="fas fa-backward control-btn" onclick="prev_song()"></i>
-                        <div class="position-relative">
-                            <img src="/static/icons/play.webp" alt="" onclick="player.play()" id="play-btn" class="play-btn-main">
-                            <img src="/static/icons/pause.png" onclick="player.pause()" alt="" hidden id="pause-btn" class="play-btn-main">
-                            <div id="song-loader" hidden class="position-absolute top-50 start-50 translate-middle">
-                                <img src="/static/img/loader.gif" width="40" alt="">
+                    
+                    <div class="d-flex align-items-center justify-content-center position-relative mb-2">
+                        <div class="playback-options-group d-flex gap-1 position-absolute start-0">
+                            <div id="song-loop" class="loop-type active" onclick="change_play_type('loop')" title="Loop All">
+                                <i class="fas fa-redo"></i>
+                            </div>
+                            <div hidden id="song-single-loop" class="loop-type" onclick="change_play_type('single-loop')" title="Loop One">
+                                <i class="fas fa-redo-alt"></i>
+                            </div>
+                            <div hidden id="song-shuffle" class="loop-type" onclick="change_play_type('shuffle')" title="Shuffle">
+                                <i class="fas fa-random"></i>
                             </div>
                         </div>
-                        <i class="fas fa-forward control-btn" onclick="next_song()"></i>
+
+                        <div class="d-flex align-items-center gap-4">
+                            <i class="fas fa-backward control-btn" onclick="prev_song()"></i>
+                            <div class="position-relative">
+                                <img src="/static/icons/play.webp" alt="" onclick="player.play()" id="play-btn" class="play-btn-main">
+                                <img src="/static/icons/pause.png" onclick="player.pause()" alt="" hidden id="pause-btn" class="play-btn-main">
+                                <div id="song-loader" hidden class="position-absolute top-50 start-50 translate-middle">
+                                    <img src="/static/img/loader.gif" width="30" alt="">
+                                </div>
+                            </div>
+                            <i class="fas fa-forward control-btn" onclick="next_song()"></i>
+                        </div>
                     </div>
                     
                     <div class="song-slider-container">
@@ -861,19 +807,6 @@
                         <div id="elapsed-time">00:00</div>
                         <div id="total-time">00:00</div>
                     </div>
-
-                    <!-- Playback Options (Shuffle/Loop) -->
-                    <div class="playback-options">
-                        <div id="song-loop" class="loop-type active" onclick="change_play_type('loop')" title="Loop All">
-                            <i class="fas fa-redo"></i>
-                        </div>
-                        <div hidden id="song-single-loop" class="loop-type" onclick="change_play_type('single-loop')" title="Loop One">
-                            <i class="fas fa-redo-alt"></i>
-                        </div>
-                        <div hidden id="song-shuffle" class="loop-type" onclick="change_play_type('shuffle')" title="Shuffle">
-                            <i class="fas fa-random"></i>
-                        </div>
-                    </div>
                 </div>
             </div>
         </div>
@@ -881,30 +814,28 @@
         <div class="mode-block" hidden id="online-block">
             <div class="result-type-container">
                 <div class="result-type active" id="type-song" onclick="toggle_type('song')">
-                    <i class="fas fa-music fa-2x mb-2 d-block"></i>
-                    <span>Audio</span>
+                    Audio
                 </div>
                 <div class="result-type" id="type-video" onclick="toggle_type('video')">
-                    <i class="fas fa-video fa-2x mb-2 d-block"></i>
-                    <span>Video</span>
+                    Video
                 </div>
             </div>
 
-            <div id="song-loading" hidden>
-                <img src="/static/img/page_loader.gif" alt="" style="width: 50px;">
+            <div id="song-loading" hidden class="text-center p-3">
+                <img src="/static/img/page_loader.gif" alt="" style="width: 32px;">
             </div>
             <div class="online-list-container mx-auto" id="song-list"></div>
-            <div id="no-result">No matching results found</div>
+            <div id="no-result" hidden>No results found</div>
         </div>
 
         <div class="mode-block" id="offline-block">
             <div class="offline-search-container">
                 <i class="fas fa-search"></i>
-                <input type="text" placeholder="Search your library..." onkeyup="create_song_card()"
+                <input type="text" placeholder="Search library..." onkeyup="create_song_card()"
                     class="form-control" id="offline-search">
             </div>
             <div class="offline-list-container mx-auto" id="offline-song-list"></div>
-            <div id="no-result-offline">Your library is empty</div>
+            <div id="no-result-offline" hidden>Library is empty</div>
         </div>
     </div>
 
@@ -915,16 +846,16 @@
         <div class="mini-progress-container">
             <div class="mini-progress-bar" id="mini-progress-bar"></div>
         </div>
-        <div class="d-flex align-items-center justify-content-between p-3">
-            <div class="mini-player-info d-flex align-items-center gap-3" onclick="scrollToTop()" style="cursor: pointer; flex: 1; min-width: 0;">
-                <img src="/static/img/bg.png" class="mini-player-img" id="mini-player-img" style="width: 50px; height: 50px; border-radius: 12px; object-fit: cover;">
+        <div class="d-flex align-items-center justify-content-between h-100">
+            <div class="mini-player-info d-flex align-items-center gap-2" onclick="scrollToTop()" style="cursor: pointer; flex: 1; min-width: 0;">
+                <img src="/static/img/bg.png" class="mini-player-img" id="mini-player-img">
                 <div style="min-width: 0;">
-                    <div class="mini-player-name" id="mini-player-name" style="font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">Unknown Song</div>
+                    <div class="mini-player-name" id="mini-player-name" style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">Unknown Song</div>
                 </div>
             </div>
-            <div class="d-flex gap-3">
-                <i class="fas fa-play fa-lg" id="mini-play-btn" onclick="player.play()" style="cursor: pointer; color: var(--orange);"></i>
-                <i class="fas fa-pause fa-lg" id="mini-pause-btn" hidden onclick="player.pause()" style="cursor: pointer; color: var(--orange);"></i>
+            <div class="d-flex gap-2">
+                <i class="fas fa-play" id="mini-play-btn" onclick="player.play()" style="cursor: pointer; color: var(--orange); font-size: 1.1rem;"></i>
+                <i class="fas fa-pause" id="mini-pause-btn" hidden onclick="player.pause()" style="cursor: pointer; color: var(--orange); font-size: 1.1rem;"></i>
             </div>
         </div>
     </div>
@@ -951,46 +882,43 @@
     const song_loader = document.getElementById("song-loader");
     const time_slider = document.getElementById("time-slider");
     const time_fill = document.getElementById("time-fill");
-    const track = document.getElementById("time-track");
     const elapsed_time = document.getElementById("elapsed-time");
     const total_time = document.getElementById("total-time");
+    const track = document.getElementById("time-track");
+    const miniPlayBtn = document.getElementById("mini-play-btn");
+    const miniPauseBtn = document.getElementById("mini-pause-btn");
+    const miniProgressBar = document.getElementById("mini-progress-bar");
+    const miniPlayerImg = document.getElementById("mini-player-img");
+    const miniPlayerName = document.getElementById("mini-player-name");
     const noresult = document.getElementById("no-result");
     const noresult_offline = document.getElementById("no-result-offline");
     const songloader = document.getElementById("song-loading");
 
     const miniPlayer = document.getElementById("mini-player");
-    const miniProgressBar = document.getElementById("mini-progress-bar");
-    const miniPlayerImg = document.getElementById("mini-player-img");
-    const miniPlayerName = document.getElementById("mini-player-name");
-    const miniPlayBtn = document.getElementById("mini-play-btn");
-    const miniPauseBtn = document.getElementById("mini-pause-btn");
 
-    function toggleSideMenu() {
-        document.getElementById("side-menu").classList.toggle("active");
-        document.getElementById("side-menu-overlay").classList.toggle("active");
-    }
-
-    let current_state = "";
-    let currentSongId = 0;
-    let searchResults = [];
     let savedSongs = [];
+    let searchResults = [];
     let currentMode = "offline";
     let currentType = "song";
+    let currentSongId = "";
     let currentPlayType = "loop";
+
+    const dbName = "myMediaDB";
+    const dbVersion = 2;
     let db;
 
     async function initDB() {
         return new Promise((resolve, reject) => {
-            const request = indexedDB.open("myMediaDB", 1);
+            const request = indexedDB.open(dbName, dbVersion);
             request.onupgradeneeded = (e) => {
-                db = e.target.result;
+                const db = e.target.result;
                 if (!db.objectStoreNames.contains('songs')) {
                     db.createObjectStore('songs');
                 }
             };
             request.onsuccess = (e) => {
                 db = e.target.result;
-                resolve();
+                resolve(db);
             };
             request.onerror = (e) => reject(e);
         });
@@ -999,16 +927,13 @@
     async function saveBlob(song) {
         if (!db) return;
         
-        // Add index for sorting if not present
         if (!song.index) song.index = Date.now();
         
-        // Upscale image URL if low-res and force re-fetch of image_blob
         if (song.image && song.image.includes("w60-h60")) {
             song.image = song.image.replace("w60-h60", "w400-h400");
             delete song.image_blob;
         }
         
-        // Fetch and save image as blob if not already saved
         if (!song.image_blob && song.image) {
             try {
                 const response = await fetch(song.image);
@@ -1137,9 +1062,6 @@
         reader.readAsText(file);
     }
 
-    const vinylRecord = document.getElementById("vinyl-record");
-    const tonearm = document.getElementById("tonearm");
-
     function formatTime(seconds) {
         const min = Math.floor(seconds / 60);
         const sec = Math.floor(seconds % 60);
@@ -1154,17 +1076,12 @@
             play_btn.hidden = false;
             miniPlayBtn.hidden = false;
             miniPauseBtn.hidden = true;
-            vinylRecord.classList.add("paused");
-            tonearm.classList.remove("active");
         } else if (state == "pause") { // Music is PLAYING
             pause_btn.hidden = false;
             song_loader.hidden = true;
             play_btn.hidden = true;
             miniPlayBtn.hidden = true;
             miniPauseBtn.hidden = false;
-            vinylRecord.classList.add("playing");
-            vinylRecord.classList.remove("paused");
-            tonearm.classList.add("active");
         } else if (state == "loading") {
             pause_btn.hidden = true;
             song_loader.hidden = false;
@@ -1223,6 +1140,44 @@
         }
     };
 
+    function updateMediaSession(song) {
+        if ('mediaSession' in navigator) {
+            navigator.mediaSession.metadata = new MediaMetadata({
+                title: song.song_name || "Unknown Song",
+                artist: song.artist_name || "Unknown Artist",
+                album: 'Aura Music',
+                artwork: [
+                    { src: song.image, sizes: '96x96', type: 'image/jpeg' },
+                    { src: song.image, sizes: '128x128', type: 'image/jpeg' },
+                    { src: song.image, sizes: '192x192', type: 'image/jpeg' },
+                    { src: song.image, sizes: '256x256', type: 'image/jpeg' },
+                    { src: song.image, sizes: '384x384', type: 'image/jpeg' },
+                    { src: song.image, sizes: '512x512', type: 'image/jpeg' },
+                ]
+            });
+
+            navigator.mediaSession.setActionHandler('play', () => player.play());
+            navigator.mediaSession.setActionHandler('pause', () => player.pause());
+            navigator.mediaSession.setActionHandler('previoustrack', () => prev_song());
+            navigator.mediaSession.setActionHandler('nexttrack', () => next_song());
+            navigator.mediaSession.setActionHandler('seekbackward', (details) => {
+                const skipTime = details.seekOffset || 10;
+                player.currentTime = Math.max(player.currentTime - skipTime, 0);
+            });
+            navigator.mediaSession.setActionHandler('seekforward', (details) => {
+                const skipTime = details.seekOffset || 10;
+                player.currentTime = Math.min(player.currentTime + skipTime, player.duration);
+            });
+            navigator.mediaSession.setActionHandler('seekto', (details) => {
+                if (details.fastSeek && 'fastSeek' in player) {
+                    player.fastSeek(details.seekTime);
+                    return;
+                }
+                player.currentTime = details.seekTime;
+            });
+        }
+    }
+
     async function load_song(song, autoPlay = true) {
         try {
             const id = song.id;
@@ -1235,8 +1190,6 @@
             });
 
             player.currentTime = 0;
-            
-            // Check for saved data in IndexedDB
             const savedData = await loadBlob(id);
             
             let imageUrl = song.image;
@@ -1250,9 +1203,6 @@
 
             if (savedData && savedData.image_blob instanceof Blob && !needsImageUpdate) {
                 imageUrl = URL.createObjectURL(savedData.image_blob);
-            } else if (imageUrl && imageUrl.includes("w60-h60")) {
-                // This branch is now redundant due to the check above but kept for safety
-                imageUrl = imageUrl.replace("w60-h60", "w400-h400");
             }
 
             song_image.crossOrigin = "anonymous";
@@ -1263,12 +1213,13 @@
             song_name.innerHTML = song.song_name || "Unknown Song";
             miniPlayerName.innerHTML = song.song_name || "Unknown Song";
             
+            updateMediaSession(song);
             set_play_state(autoPlay ? "loading" : "play");
 
             if (savedData && savedData.blob instanceof Blob) {
                 player.src = URL.createObjectURL(savedData.blob);
                 if (autoPlay) player.play().catch(() => set_play_state("play"));
-                if (needsImageUpdate) saveBlob(song); // Fix low-res image for saved song
+                if (needsImageUpdate) saveBlob(song);
             } else {
                 const fetchType = song.resultType || "song";
                 fetch(`/load_song?id=${id}&type=${fetchType}`)
@@ -1359,10 +1310,7 @@
         const request = store.getAll();
         request.onsuccess = () => {
             savedSongs = request.result;
-            
-            // Sort by index (new to old)
             savedSongs.sort((a, b) => (b.index || 0) - (a.index || 0));
-            
             if (currentMode === "offline") create_song_card();
         };
     }
@@ -1385,6 +1333,11 @@
 
     function scrollToTop() {
         window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    function toggleSideMenu() {
+        document.getElementById("side-menu").classList.toggle("active");
+        document.getElementById("side-menu-overlay").classList.toggle("active");
     }
 
     window.addEventListener('scroll', () => {
