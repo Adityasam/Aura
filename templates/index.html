@@ -207,27 +207,127 @@
             color: var(--orange);
         }
 
-        .main-image-box {
-            width: 280px;
-            height: 280px;
+        .record-player-container {
+            width: 250px;
+            height: 250px;
             margin: 0 auto;
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .vinyl-disc {
+            width: 100%;
+            height: 100%;
             border-radius: 50%;
-            padding: 10px;
-            background: var(--surface);
-            box-shadow: var(--neo-flat);
+            background: #121212;
+            box-shadow: var(--neo-float);
             display: flex;
             align-items: center;
             justify-content: center;
             position: relative;
+            border: 8px solid #222;
+            background-image: repeating-radial-gradient(
+                circle,
+                #121212,
+                #121212 2px,
+                #1a1a1a 3px,
+                #121212 4px
+            );
         }
 
-        .main-image {
+        .vinyl-disc::before {
+            content: '';
+            position: absolute;
             width: 100%;
             height: 100%;
             border-radius: 50%;
+            background: linear-gradient(135deg, transparent 40%, rgba(255,255,255,0.05) 50%, transparent 60%);
+            pointer-events: none;
+            z-index: 2;
+        }
+
+        .main-image {
+            width: 100px;
+            height: 100px;
+            border-radius: 50%;
             object-fit: cover;
-            box-shadow: var(--neo-pressed);
-            border: 5px solid var(--surface);
+            box-shadow: 0 0 10px rgba(0,0,0,0.8);
+            border: 3px solid #333;
+            z-index: 1;
+        }
+
+        .vinyl-disc.playing {
+            animation: rotateVinyl 4s linear infinite;
+        }
+
+        .vinyl-disc.paused {
+            animation-play-state: paused;
+        }
+
+        .record-hole {
+            position: absolute;
+            width: 12px;
+            height: 12px;
+            background: var(--surface);
+            border-radius: 50%;
+            z-index: 3;
+            box-shadow: inset 2px 2px 5px rgba(0,0,0,0.5);
+        }
+
+        .tonearm {
+            position: absolute;
+            top: -15px;
+            right: -25px;
+            width: 80px;
+            height: 150px;
+            z-index: 10;
+            pointer-events: none;
+            transform-origin: 80% 10%;
+            transform: rotate(-15deg);
+            transition: transform 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .tonearm.active {
+            transform: rotate(15deg);
+        }
+
+        .tonearm-base {
+            position: absolute;
+            top: 0;
+            right: 10%;
+            width: 35px;
+            height: 35px;
+            background: #333;
+            border-radius: 50%;
+            box-shadow: var(--neo-flat);
+        }
+
+        .tonearm-rod {
+            position: absolute;
+            top: 18px;
+            right: 22px;
+            width: 6px;
+            height: 120px;
+            background: linear-gradient(to right, #444, #666, #444);
+            border-radius: 4px;
+        }
+
+        .tonearm-head {
+            position: absolute;
+            bottom: 0;
+            right: 8px;
+            width: 22px;
+            height: 30px;
+            background: #222;
+            border-radius: 4px;
+            transform: rotate(10deg);
+        }
+
+        @keyframes rotateVinyl {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
         }
 
         .main-song-info-block {
@@ -481,9 +581,9 @@
 
         /* Responsive adjustments */
         @media (max-width: 768px) {
-            .app-header { padding: 1rem; gap: 1rem; }
+            .app-header { padding: 1rem 1rem 0rem 1rem; gap: 1rem; }
             .header-burger { width: 50px; height: 50px; }
-            .nav-bar { padding: 0 1rem 1.5rem; }
+            .nav-bar { padding: 1rem 1rem 1.5rem; }
             .main-song-container { margin: 1rem; padding: 1.5rem; }
             .main-image-box { width: 220px; height: 220px; }
             .playback-options { gap: 1rem; }
@@ -726,8 +826,16 @@
         <div class="main-song-container">
             <div class="main-image-container">
                 <audio src="" hidden id="audio_player"></audio>
-                <div class="main-image-box">
-                    <img id="song-image" src="/static/img/bg.png" class="main-image" alt="">
+                <div class="record-player-container">
+                    <div class="vinyl-disc" id="vinyl-record">
+                        <img id="song-image" src="/static/img/bg.png" class="main-image" alt="">
+                        <div class="record-hole"></div>
+                    </div>
+                    <div class="tonearm" id="tonearm">
+                        <div class="tonearm-base"></div>
+                        <div class="tonearm-rod"></div>
+                        <div class="tonearm-head"></div>
+                    </div>
                 </div>
                 <div class="main-song-info-block">
                     <div class="main-song-name" id="song-name">Select a Song</div>
@@ -1029,6 +1137,9 @@
         reader.readAsText(file);
     }
 
+    const vinylRecord = document.getElementById("vinyl-record");
+    const tonearm = document.getElementById("tonearm");
+
     function formatTime(seconds) {
         const min = Math.floor(seconds / 60);
         const sec = Math.floor(seconds % 60);
@@ -1037,18 +1148,23 @@
 
     function set_play_state(state) {
         current_state = state;
-        if (state == "play") {
+        if (state == "play") { // Music is PAUSED
             pause_btn.hidden = true;
             song_loader.hidden = true;
             play_btn.hidden = false;
             miniPlayBtn.hidden = false;
             miniPauseBtn.hidden = true;
-        } else if (state == "pause") {
+            vinylRecord.classList.add("paused");
+            tonearm.classList.remove("active");
+        } else if (state == "pause") { // Music is PLAYING
             pause_btn.hidden = false;
             song_loader.hidden = true;
             play_btn.hidden = true;
             miniPlayBtn.hidden = true;
             miniPauseBtn.hidden = false;
+            vinylRecord.classList.add("playing");
+            vinylRecord.classList.remove("paused");
+            tonearm.classList.add("active");
         } else if (state == "loading") {
             pause_btn.hidden = true;
             song_loader.hidden = false;
@@ -1276,8 +1392,12 @@
         else miniPlayer.classList.remove('active');
     });
 
-    player.onplay = () => set_play_state("pause");
-    player.onpause = () => set_play_state("play");
+    player.onplay = () => {
+        set_play_state("pause");
+    };
+    player.onpause = () => {
+        set_play_state("play");
+    };
     player.onloadedmetadata = () => total_time.textContent = formatTime(player.duration);
 
     let isDragging = false;
