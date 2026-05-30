@@ -1113,7 +1113,7 @@
         load_song(list[index]);
     }
 
-    function change_play_type(type) {
+    function change_play_type(type, persist = true) {
         document.getElementById("song-loop").hidden = true;
         document.getElementById("song-single-loop").hidden = true;
         document.getElementById("song-shuffle").hidden = true;
@@ -1128,7 +1128,11 @@
             currentPlayType = "loop";
             document.getElementById("song-loop").hidden = false;
         }
-        show_toast(`Play mode: ${currentPlayType}`);
+        
+        if (persist) {
+            localStorage.setItem("playbackMode", currentPlayType);
+            show_toast(`Play mode: ${currentPlayType}`);
+        }
     }
 
     player.onended = () => {
@@ -1387,6 +1391,23 @@
     document.addEventListener("DOMContentLoaded", async () => {
         await initDB();
         create_saved_song_list();
+        
+        // Restore playback mode
+        const savedMode = localStorage.getItem("playbackMode");
+        if (savedMode) {
+            // We call with a dummy type and persist=false to just set the state visually and internally
+            // Our change_play_type logic cycles: loop -> single-loop -> shuffle -> loop
+            // So we need to set the state based on what was saved.
+            if (savedMode === "single-loop") {
+                change_play_type("loop", false);
+            } else if (savedMode === "shuffle") {
+                change_play_type("single-loop", false);
+            } else {
+                // Default is loop, no action needed as UI starts with loop visible
+                currentPlayType = "loop";
+            }
+        }
+
         const last = localStorage.getItem("lastPlayedSong");
         if (last) load_song(JSON.parse(last), false);
     });
