@@ -831,7 +831,7 @@
         <div class="mode-block" id="offline-block">
             <div class="offline-search-container">
                 <i class="fas fa-search"></i>
-                <input type="text" placeholder="Search library..." onkeyup="currentStartIndex=0;create_song_card()"
+                <input type="text" placeholder="Search library..." onkeyup="create_song_card()"
                     class="form-control" id="offline-search">
             </div>
             <div class="offline-list-container mx-auto" id="offline-song-list"></div>
@@ -902,13 +902,6 @@
     let currentType = "song";
     let currentSongId = "";
     let currentPlayType = "loop";
-
-    // Virtualization Constants & State
-    const PAGE_SIZE = 20;
-    const ITEM_HEIGHT = 66; // Estimated height in pixels
-    let currentStartIndex = 0;
-    let isScrolling = false;
-    let lastScrollTop = 0;
 
     const dbName = "myMediaDB";
     const dbVersion = 2;
@@ -1255,7 +1248,6 @@
         const search = searchInput.value.trim();
         if (!search) return;
 
-        currentStartIndex = 0; // Reset for new search
         change_mode("online");
         parent.innerHTML = "";
         songloader.hidden = false;
@@ -1282,30 +1274,13 @@
         const targetParent = mode === "offline" ? offline_parent : parent;
         const offlineSearch = document.getElementById("offline-search").value.toLowerCase();
 
-        // Filter list first
-        const filteredList = list.filter(song => {
-            if (mode === "online" && song.resultType !== currentType) return false;
-            if (mode === "offline" && !song.song_name.toLowerCase().includes(offlineSearch)) return false;
-            return true;
-        });
-
-        const totalCount = filteredList.length;
-        
-        // Ensure startIndex is within bounds
-        if (currentStartIndex >= totalCount) {
-            currentStartIndex = Math.max(0, totalCount - PAGE_SIZE);
-        }
-
-        const visibleSongs = filteredList.slice(currentStartIndex, currentStartIndex + PAGE_SIZE);
-
         targetParent.innerHTML = "";
-        
-        // Top Spacer
-        const topSpacer = document.createElement("div");
-        topSpacer.style.height = `${currentStartIndex * ITEM_HEIGHT}px`;
-        targetParent.appendChild(topSpacer);
+        let count = 0;
 
-        visibleSongs.forEach(song => {
+        list.forEach(song => {
+            if (mode === "online" && song.resultType !== currentType) return;
+            if (mode === "offline" && !song.song_name.toLowerCase().includes(offlineSearch)) return;
+
             const temp = song_temp.cloneNode(true);
             temp.hidden = false;
             temp.id = "";
@@ -1325,76 +1300,12 @@
 
             temp.onclick = () => load_song(song);
             targetParent.appendChild(temp);
+            count++;
         });
 
-        // Bottom Spacer
-        const bottomSpacer = document.createElement("div");
-        const remaining = totalCount - (currentStartIndex + visibleSongs.length);
-        bottomSpacer.style.height = `${remaining * ITEM_HEIGHT}px`;
-        targetParent.appendChild(bottomSpacer);
-
-        if (mode === "offline") noresult_offline.hidden = totalCount > 0;
-        else noresult.hidden = totalCount > 0;
+        if (mode === "offline") noresult_offline.hidden = count > 0;
+        else noresult.hidden = count > 0;
     }
-
-    // Throttled Scroll Handler
-     let scrollTimeout;
-     function handleVirtualizedScroll() {
-         // Mini Player Visibility (non-throttled for smoothness)
-         if (window.scrollY > 300 && player.src !== "") miniPlayer.classList.add('active');
-         else miniPlayer.classList.remove('active');
-
-         if (scrollTimeout) return;
-
-         scrollTimeout = setTimeout(() => {
-             scrollTimeout = null;
-             const scrollTop = window.scrollY;
-             const viewportHeight = window.innerHeight;
-             
-             const mode = currentMode;
-             const list = mode === "offline" ? savedSongs : searchResults;
-             const offlineSearch = document.getElementById("offline-search").value.toLowerCase();
-             const filteredCount = list.filter(song => {
-                 if (mode === "online" && song.resultType !== currentType) return false;
-                 if (mode === "offline" && !song.song_name.toLowerCase().includes(offlineSearch)) return false;
-                 return true;
-             }).length;
-
-             if (filteredCount <= PAGE_SIZE) return;
-
-             // Detect if we are near the top or bottom of the current 20-item block
-             const currentTopPos = currentStartIndex * ITEM_HEIGHT;
-             const currentBottomPos = (currentStartIndex + PAGE_SIZE) * ITEM_HEIGHT;
-
-             let newStartIndex = currentStartIndex;
-
-             // If scrolling down and near the bottom of the visible batch
-             if (scrollTop + viewportHeight > currentBottomPos - (ITEM_HEIGHT * 5)) {
-                 newStartIndex = Math.min(filteredCount - PAGE_SIZE, currentStartIndex + PAGE_SIZE);
-             } 
-             // If scrolling up and near the top of the visible batch
-             else if (scrollTop < currentTopPos + (ITEM_HEIGHT * 5)) {
-                 newStartIndex = Math.max(0, currentStartIndex - PAGE_SIZE);
-             }
-
-             if (newStartIndex !== currentStartIndex) {
-                 const oldStart = currentStartIndex;
-                 currentStartIndex = newStartIndex;
-                 
-                 if (Math.abs(newStartIndex - oldStart) >= PAGE_SIZE) {
-                     songloader.hidden = false;
-                     setTimeout(() => {
-                         create_song_card();
-                         songloader.hidden = true;
-                     }, 50);
-                 } else {
-                     create_song_card();
-                 }
-             }
-         }, 100);
-     }
-
-     window.addEventListener('scroll', handleVirtualizedScroll);
 
     async function create_saved_song_list() {
         if (!db) return;
@@ -1410,7 +1321,6 @@
 
     function change_mode(mode) {
         currentMode = mode;
-        currentStartIndex = 0; // Reset for mode change
         document.getElementById("online-block").hidden = mode === "offline";
         document.getElementById("offline-block").hidden = mode === "online";
         document.getElementById("play-offline").classList.toggle("active", mode === "offline");
@@ -1420,7 +1330,6 @@
 
     function toggle_type(type) {
         currentType = type;
-        currentStartIndex = 0; // Reset for type change
         document.getElementById("type-song").classList.toggle("active", type === "song");
         document.getElementById("type-video").classList.toggle("active", type === "video");
         create_song_card();
@@ -1434,6 +1343,11 @@
         document.getElementById("side-menu").classList.toggle("active");
         document.getElementById("side-menu-overlay").classList.toggle("active");
     }
+
+    window.addEventListener('scroll', () => {
+        if (window.scrollY > 300 && player.src !== "") miniPlayer.classList.add('active');
+        else miniPlayer.classList.remove('active');
+    });
 
     player.onplay = () => {
         set_play_state("pause");
