@@ -690,6 +690,151 @@
             border-bottom: 4px solid var(--orange);
         }
 
+        /* Options Popup */
+        .options-popup {
+            position: fixed;
+            bottom: -100%;
+            left: 0;
+            width: 100%;
+            background: rgba(20, 20, 25, 0.95);
+            backdrop-filter: blur(20px);
+            border-top: 1px solid var(--glass-border);
+            border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+            z-index: 2500;
+            transition: bottom 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            padding: 1.5rem;
+        }
+
+        .options-popup.active {
+            bottom: 0;
+        }
+
+        .option-item {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            padding: 1rem;
+            color: var(--text-primary);
+            cursor: pointer;
+            border-radius: var(--radius-md);
+            margin-bottom: 0.5rem;
+            background: var(--surface);
+        }
+
+        .option-item:hover {
+            background: var(--surface-hover);
+        }
+
+        .option-item i {
+            font-size: 1.2rem;
+            width: 24px;
+            text-align: center;
+        }
+
+        .option-item.delete {
+            color: #ff4d4d;
+        }
+
+        .option-header {
+            text-align: center;
+            margin-bottom: 1.5rem;
+        }
+
+        .option-song-title {
+            font-weight: 800;
+            margin-bottom: 0.2rem;
+        }
+
+        .option-song-artist {
+            color: var(--text-secondary);
+            font-size: 0.85rem;
+        }
+
+        /* Confirmation Dialog */
+        .confirm-dialog {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) scale(0.9);
+            width: 90%;
+            max-width: 350px;
+            background: rgba(25, 25, 30, 0.95);
+            backdrop-filter: blur(25px);
+            border: 1px solid var(--glass-border);
+            border-radius: var(--radius-xl);
+            padding: 2rem;
+            z-index: 3500;
+            opacity: 0;
+            pointer-events: none;
+            transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            text-align: center;
+            box-shadow: 0 40px 100px rgba(0,0,0,0.8);
+        }
+
+        .confirm-dialog.active {
+            opacity: 1;
+            transform: translate(-50%, -50%) scale(1);
+            pointer-events: auto;
+        }
+
+        .confirm-icon-box {
+            width: 100px;
+            height: 100px;
+            margin: 0 auto 1.5rem;
+            border-radius: var(--radius-lg);
+            overflow: hidden;
+            border: 2px solid var(--glass-border);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+        }
+
+        .confirm-icon-box img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .confirm-title {
+            font-size: 1.1rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+            color: var(--text-primary);
+        }
+
+        .confirm-message {
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+            margin-bottom: 2rem;
+        }
+
+        .confirm-actions {
+            display: flex;
+            gap: 12px;
+        }
+
+        .confirm-btn {
+            flex: 1;
+            padding: 0.8rem;
+            border-radius: var(--radius-md);
+            border: none;
+            font-weight: 700;
+            cursor: pointer;
+            transition: var(--transition);
+        }
+
+        .confirm-btn-delete {
+            background: #ff4d4d;
+            color: white;
+        }
+
+        .confirm-btn-cancel {
+            background: var(--surface);
+            color: var(--text-primary);
+        }
+
+        .confirm-btn:active {
+            transform: scale(0.95);
+        }
+
         /* Mobile adjustments */
         @media (max-width: 768px) {
             .app-header { padding: 1rem; }
@@ -872,7 +1017,42 @@
             <div class="song-name">Song Name</div>
             <div class="atrist-name">Artist Name</div>
         </div>
-        <i class="fas fa-trash-alt delbtn" onclick="delete_song(event)"></i>
+        <i class="fas fa-ellipsis-v options-btn" onclick="open_options(event)"></i>
+    </div>
+
+    <!-- Options Popup -->
+    <div class="side-menu-overlay" id="options-overlay" onclick="close_options()"></div>
+    <div class="options-popup" id="options-popup">
+        <div class="option-header">
+            <div class="option-song-title" id="opt-title">Song Title</div>
+            <div class="option-song-artist" id="opt-artist">Artist Name</div>
+        </div>
+        <div class="option-item" onclick="share_song()">
+            <i class="fas fa-share-alt"></i>
+            <span>Share Song</span>
+        </div>
+        <div class="option-item delete" id="opt-delete" onclick="delete_song_from_options()">
+            <i class="fas fa-trash-alt"></i>
+            <span>Remove from Library</span>
+        </div>
+        <div class="option-item" onclick="close_options()">
+            <i class="fas fa-times"></i>
+            <span>Cancel</span>
+        </div>
+    </div>
+
+    <!-- Confirm Dialog -->
+    <div class="side-menu-overlay" id="confirm-overlay" onclick="close_confirm()"></div>
+    <div class="confirm-dialog" id="confirm-dialog">
+        <div class="confirm-icon-box">
+            <img src="/static/img/bg.png" id="confirm-img">
+        </div>
+        <div class="confirm-title" id="confirm-song-name">Song Name</div>
+        <div class="confirm-message">Are you sure you want to remove this song from your library?</div>
+        <div class="confirm-actions">
+            <button class="confirm-btn confirm-btn-cancel" onclick="close_confirm()">Cancel</button>
+            <button class="confirm-btn confirm-btn-delete" onclick="confirm_delete()">Delete</button>
+        </div>
     </div>
 </body>
 <script>
@@ -985,17 +1165,89 @@
         });
     }
 
-    function delete_song(e) {
+    let currentOptionSong = null;
+
+    function open_options(e) {
         e.stopPropagation();
-        const id = e.target.closest('.delbtn').getAttribute("data-id");
-        if (!confirm("Remove this song from library?")) return;
+        const box = e.target.closest('.list-item-box');
+        const id = box.getAttribute('data-song-id');
+        const list = currentMode === "offline" ? savedSongs : searchResults;
+        currentOptionSong = list.find(s => s.id === id);
+
+        if (currentOptionSong) {
+            document.getElementById('opt-title').innerText = currentOptionSong.song_name;
+            document.getElementById('opt-artist').innerText = currentOptionSong.artist_name || 'Unknown Artist';
+            
+            // Hide delete if in online mode (discovery)
+            document.getElementById('opt-delete').style.display = currentMode === 'offline' ? 'flex' : 'none';
+
+            document.getElementById('options-popup').classList.add('active');
+            document.getElementById('options-overlay').classList.add('active');
+        }
+    }
+
+    function close_options() {
+        document.getElementById('options-popup').classList.remove('active');
+        document.getElementById('options-overlay').classList.remove('active');
+        currentOptionSong = null;
+    }
+
+    function share_song() {
+        if (!currentOptionSong) return;
+        const shareUrl = `${window.location.origin}/?play=${currentOptionSong.id}`;
+        
+        if (navigator.share) {
+            navigator.share({
+                title: currentOptionSong.song_name,
+                text: `Listen to ${currentOptionSong.song_name} on Aura`,
+                url: shareUrl
+            }).catch(console.error);
+        } else {
+            navigator.clipboard.writeText(shareUrl).then(() => {
+                show_toast("Link copied to clipboard!");
+            }).catch(() => {
+                show_toast("Failed to copy link", "error");
+            });
+        }
+        close_options();
+    }
+
+    function delete_song_from_options() {
+        if (!currentOptionSong || !db) return;
+        
+        // Setup custom confirm
+        let displayImage = currentOptionSong.image || "/static/img/bg.png";
+        if (currentOptionSong.image_blob instanceof Blob) {
+            displayImage = URL.createObjectURL(currentOptionSong.image_blob);
+        }
+        document.getElementById('confirm-img').src = displayImage;
+        document.getElementById('confirm-song-name').innerText = currentOptionSong.song_name;
+        
+        // Show dialog
+        document.getElementById('confirm-dialog').classList.add('active');
+        document.getElementById('confirm-overlay').classList.add('active');
+        
+        // Hide options popup but keep currentOptionSong
+        document.getElementById('options-popup').classList.remove('active');
+        document.getElementById('options-overlay').classList.remove('active');
+    }
+
+    function close_confirm() {
+        document.getElementById('confirm-dialog').classList.remove('active');
+        document.getElementById('confirm-overlay').classList.remove('active');
+        currentOptionSong = null;
+    }
+
+    function confirm_delete() {
+        if (!currentOptionSong || !db) return;
         
         const tx = db.transaction('songs', 'readwrite');
         const store = tx.objectStore('songs');
-        store.delete(id);
+        store.delete(currentOptionSong.id);
         tx.oncomplete = () => {
             show_toast("Song removed");
             create_saved_song_list();
+            close_confirm();
         };
     }
 
@@ -1319,8 +1571,6 @@
             temp.querySelector("img").src = displayImage;
             temp.querySelector(".song-name").innerHTML = song.song_name;
             temp.querySelector(".atrist-name").innerHTML = song.artist_name;
-            temp.querySelector(".delbtn").setAttribute("data-id", song.id);
-            if (mode === "online") temp.querySelector(".delbtn").hidden = true;
 
             temp.onclick = () => load_song(song);
             targetParent.appendChild(temp);
@@ -1435,8 +1685,21 @@
             }
         }
 
-        const last = localStorage.getItem("lastPlayedSong");
-        if (last) load_song(JSON.parse(last), false);
+        const urlParams = new URLSearchParams(window.location.search);
+        const playId = urlParams.get('play');
+        if (playId) {
+            fetch(`/get_song_info?id=${playId}`)
+                .then(res => res.json())
+                .then(song => {
+                    if (song && !song.error) {
+                        load_song(song, true);
+                    }
+                })
+                .catch(console.error);
+        } else {
+            const last = localStorage.getItem("lastPlayedSong");
+            if (last) load_song(JSON.parse(last), false);
+        }
     });
 </script>
 
