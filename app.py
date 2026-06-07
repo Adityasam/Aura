@@ -99,6 +99,32 @@ def get_search_results(query, search_type, limit=10):
 
     return song_info
 
+@app.route('/get_song_info', methods=['GET'])
+def get_song_info():
+    songid = request.args.get('id')
+    if not songid:
+        return jsonify({"error": "No ID provided"}), 400
+    
+    url = "https://www.youtube.com/watch?v=" + songid
+    ydl_opts = {
+        'quiet': True,
+        'no_warnings': True,
+        'skip_download': True,
+    }
+    
+    try:
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            info = ydl.extract_info(url, download=False)
+            return jsonify({
+                "song_name": info.get("title", "Unknown Song"),
+                "artist_name": info.get("uploader", info.get("creator", "Unknown Artist")),
+                "image": info.get("thumbnail", ""),
+                "id": songid,
+                "resultType": "song"
+            })
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
 @app.route('/search', methods=['GET'])
 def proxy():
     query = request.args.get('search')
