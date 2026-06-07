@@ -574,10 +574,10 @@
         .offline-search-container {
             background: var(--glass);
             border-radius: var(--radius-lg);
-            padding: 0 1.2rem;
-            margin: 0 1.5rem 1rem;
+            padding: 0 0.8rem;
+            margin: 0 1rem 1rem;
             border: 1px solid var(--glass-border);
-            height: 40px;
+            height: 48px;
             display: flex;
             align-items: center;
             gap: 10px;
@@ -829,10 +829,15 @@
         </div>
 
         <div class="mode-block" id="offline-block">
-            <div class="offline-search-container">
-                <i class="fas fa-search"></i>
-                <input type="text" placeholder="Search library..." onkeyup="create_song_card()"
-                    class="form-control" id="offline-search">
+            <div class="offline-search-container d-flex align-items-center gap-2">
+                <div class="position-relative flex-grow-1">
+                    <i class="fas fa-search position-absolute top-50 start-0 translate-middle-y ms-2" style="opacity: 0.5;"></i>
+                    <input type="text" placeholder="Search library..." onkeyup="create_song_card()"
+                        class="form-control ps-4" id="offline-search">
+                </div>
+                <div id="library-count" class="badge rounded-pill bg-surface text-secondary" style="font-weight: 400; font-size: 0.75rem; border: 1px solid var(--glass-border); padding: 0.4rem 0.6rem;">
+                    0 Songs
+                </div>
             </div>
             <div class="offline-list-container mx-auto" id="offline-song-list"></div>
             <div id="no-result-offline" hidden>Library is empty</div>
@@ -895,6 +900,25 @@
     const songloader = document.getElementById("song-loading");
 
     const miniPlayer = document.getElementById("mini-player");
+
+    let wakeLock = null;
+
+    async function requestWakeLock() {
+        try {
+            if ('wakeLock' in navigator) {
+                wakeLock = await navigator.wakeLock.request('screen');
+            }
+        } catch (err) {
+            console.error(`${err.name}, ${err.message}`);
+        }
+    }
+
+    function releaseWakeLock() {
+        if (wakeLock !== null) {
+            wakeLock.release();
+            wakeLock = null;
+        }
+    }
 
     let savedSongs = [];
     let searchResults = [];
@@ -1315,6 +1339,7 @@
         request.onsuccess = () => {
             savedSongs = request.result;
             savedSongs.sort((a, b) => (b.index || 0) - (a.index || 0));
+            document.getElementById("library-count").innerHTML = `${savedSongs.length} Songs`;
             if (currentMode === "offline") create_song_card();
         };
     }
@@ -1351,9 +1376,11 @@
 
     player.onplay = () => {
         set_play_state("pause");
+        requestWakeLock();
     };
     player.onpause = () => {
         set_play_state("play");
+        releaseWakeLock();
     };
     player.onloadedmetadata = () => total_time.textContent = formatTime(player.duration);
 
