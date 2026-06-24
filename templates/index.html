@@ -978,7 +978,7 @@
                 <div class="position-relative flex-grow-1">
                     <i class="fas fa-search position-absolute top-50 start-0 translate-middle-y ms-2" style="opacity: 0.5;"></i>
                     <input type="text" placeholder="Search library..." onkeyup="create_song_card()"
-                        class="form-control ps-4" id="offline-search">
+                        class="form-control" style="padding-left: 2rem !important;" id="offline-search">
                 </div>
                 <div id="library-count" class="badge rounded-pill bg-surface text-secondary" style="font-weight: 400; font-size: 0.75rem; border: 1px solid var(--glass-border); padding: 0.4rem 0.6rem;">
                     0 Songs
@@ -1108,7 +1108,7 @@
     let currentPlayType = "loop";
 
     const dbName = "myMediaDB";
-    const dbVersion = 2;
+    const dbVersion = 3;
     let db;
 
     async function initDB() {
@@ -1118,6 +1118,9 @@
                 const db = e.target.result;
                 if (!db.objectStoreNames.contains('songs')) {
                     db.createObjectStore('songs');
+                }
+                if (!db.objectStoreNames.contains('config')) {
+                    db.createObjectStore('config');
                 }
             };
             request.onsuccess = (e) => {
