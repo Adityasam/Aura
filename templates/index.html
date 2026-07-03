@@ -8,7 +8,16 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.3/css/bootstrap.min.css" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
     <link rel="manifest" href="{{ url_for('static', filename='manifest.json') }}">
-    <link rel="icon" href="{{ url_for('static', filename='icons/icon-192.png') }}">
+    <link rel="icon" type="image/png" sizes="48x48" href="{{ url_for('static', filename='icons/icon-48.png') }}">
+    <link rel="icon" type="image/png" sizes="72x72" href="{{ url_for('static', filename='icons/icon-72.png') }}">
+    <link rel="icon" type="image/png" sizes="96x96" href="{{ url_for('static', filename='icons/icon-96.png') }}">
+    <link rel="icon" type="image/png" sizes="128x128" href="{{ url_for('static', filename='icons/icon-128.png') }}">
+    <link rel="icon" type="image/png" sizes="144x144" href="{{ url_for('static', filename='icons/icon-144.png') }}">
+    <link rel="icon" type="image/png" sizes="192x192" href="{{ url_for('static', filename='icons/icon-192.png') }}">
+    <link rel="icon" type="image/png" sizes="256x256" href="{{ url_for('static', filename='icons/icon-256.png') }}">
+    <link rel="icon" type="image/png" sizes="384x384" href="{{ url_for('static', filename='icons/icon-384.png') }}">
+    <link rel="icon" type="image/png" sizes="512x512" href="{{ url_for('static', filename='icons/icon-512.png') }}">
+    <link rel="apple-touch-icon" sizes="192x192" href="{{ url_for('static', filename='icons/icon-192.png') }}">
     <script src="/static/js/myToastr.js"></script>
 
     <style>
@@ -390,7 +399,6 @@
             max-width: 850px;
             display: flex;
             flex-direction: column;
-            gap: 8px;
             padding: 0 1.5rem 8rem;
         }
 
@@ -398,6 +406,7 @@
             background: var(--glass);
             border-radius: var(--radius-lg);
             padding: 8px 16px;
+            margin-bottom: 8px;
             display: flex;
             align-items: center;
             gap: 14px;
@@ -444,6 +453,9 @@
             color: var(--text-secondary);
             font-size: 0.8rem;
             font-weight: 500;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
 
         .delbtn {
@@ -1106,6 +1118,18 @@
     let currentType = "song";
     let currentSongId = "";
     let currentPlayType = "loop";
+    let isLoading = false;
+    let currentImageObjectUrl = null;
+    let currentAudioObjectUrl = null;
+    let cardObjectUrls = [];
+
+    // Virtualized list state
+    const WIN = 30, STEP = 10, THRESH = 0.25;
+    let renderList = [];
+    let renderParent = null;
+    let winStart = 0;
+    let rowH = 0;
+    let virtualActive = false;
 
     const dbName = "myMediaDB";
     const dbVersion = 3;
@@ -1484,9 +1508,15 @@
                 needsImageUpdate = true;
             }
 
-            if (savedData && savedData.image_blob instanceof Blob && !needsImageUpdate) {
+            // Prefer cached high-res blob (cache only ever holds high-res) -> no network refetch on replay
+            if (savedData && savedData.image_blob instanceof Blob) {
                 imageUrl = URL.createObjectURL(savedData.image_blob);
+                needsImageUpdate = false;
             }
+
+            // Revoke previous image object URL to avoid leak
+            if (currentImageObjectUrl) URL.revokeObjectURL(currentImageObjectUrl);
+            currentImageObjectUrl = imageUrl && imageUrl.startsWith("blob:") ? imageUrl : null;
 
             song_image.crossOrigin = "anonymous";
             miniPlayerImg.crossOrigin = "anonymous";
@@ -1500,22 +1530,34 @@
             set_play_state(autoPlay ? "loading" : "play");
 
             if (savedData && savedData.blob instanceof Blob) {
-                player.src = URL.createObjectURL(savedData.blob);
+                if (currentAudioObjectUrl) URL.revokeObjectURL(currentAudioObjectUrl);
+                currentAudioObjectUrl = URL.createObjectURL(savedData.blob);
+                player.src = currentAudioObjectUrl;
                 if (autoPlay) player.play().catch(() => set_play_state("play"));
                 if (needsImageUpdate) saveBlob(song);
             } else {
+                if (autoPlay) {
+                    isLoading = true;
+                    player.pause();
+                    player.removeAttribute("src");
+                    player.load();
+                    set_play_state("loading");
+                }
                 const fetchType = song.resultType || "song";
                 fetch(`/load_song?id=${id}&type=${fetchType}`)
                     .then(res => res.blob())
                     .then(blob => {
                         if (blob instanceof Blob) {
-                            player.src = URL.createObjectURL(blob);
+                            if (currentAudioObjectUrl) URL.revokeObjectURL(currentAudioObjectUrl);
+                            currentAudioObjectUrl = URL.createObjectURL(blob);
+                            player.src = currentAudioObjectUrl;
+                            isLoading = false;
                             if (autoPlay) player.play().catch(() => set_play_state("play"));
                             song["blob"] = blob;
                             saveBlob(song);
                         }
                     })
-                    .catch(() => set_play_state("play"));
+                    .catch(() => { isLoading = false; set_play_state("play"); });
             }
         } catch (err) {
             console.error(err);
@@ -1547,41 +1589,110 @@
             });
     }
 
+    function build_card(song, mode) {
+        const temp = song_temp.cloneNode(true);
+        temp.hidden = false;
+        temp.id = "";
+        temp.setAttribute("data-song-id", song.id);
+        if (currentSongId === song.id) temp.classList.add("selected");
+
+        let displayImage = song.image || "/static/img/bg.png";
+        if (mode === "offline" && song.image_blob instanceof Blob) {
+            displayImage = URL.createObjectURL(song.image_blob);
+            cardObjectUrls.push(displayImage);
+        }
+
+        temp.querySelector("img").src = displayImage;
+        temp.querySelector(".song-name").innerHTML = song.song_name;
+        temp.querySelector(".atrist-name").innerHTML = song.artist_name;
+        temp.onclick = () => load_song(song);
+        return temp;
+    }
+
     function create_song_card() {
         const mode = currentMode;
         const list = mode === "offline" ? savedSongs : searchResults;
         const targetParent = mode === "offline" ? offline_parent : parent;
         const offlineSearch = document.getElementById("offline-search").value.toLowerCase();
 
-        targetParent.innerHTML = "";
-        let count = 0;
+        // Revoke object URLs from previous render to avoid leak
+        cardObjectUrls.forEach(u => URL.revokeObjectURL(u));
+        cardObjectUrls = [];
 
-        list.forEach(song => {
-            if (mode === "online" && song.resultType !== currentType) return;
-            if (mode === "offline" && !song.song_name.toLowerCase().includes(offlineSearch)) return;
-
-            const temp = song_temp.cloneNode(true);
-            temp.hidden = false;
-            temp.id = "";
-            temp.setAttribute("data-song-id", song.id);
-            if (currentSongId === song.id) temp.classList.add("selected");
-
-            let displayImage = song.image || "/static/img/bg.png";
-            if (mode === "offline" && song.image_blob instanceof Blob) {
-                displayImage = URL.createObjectURL(song.image_blob);
-            }
-
-            temp.querySelector("img").src = displayImage;
-            temp.querySelector(".song-name").innerHTML = song.song_name;
-            temp.querySelector(".atrist-name").innerHTML = song.artist_name;
-
-            temp.onclick = () => load_song(song);
-            targetParent.appendChild(temp);
-            count++;
+        // Filtered list to render
+        renderList = list.filter(song => {
+            if (mode === "online" && song.resultType !== currentType) return false;
+            if (mode === "offline" && !song.song_name.toLowerCase().includes(offlineSearch)) return false;
+            return true;
         });
+        renderParent = targetParent;
 
-        if (mode === "offline") noresult_offline.hidden = count > 0;
-        else noresult.hidden = count > 0;
+        const hasResults = renderList.length > 0;
+        if (mode === "offline") noresult_offline.hidden = hasResults;
+        else noresult.hidden = hasResults;
+
+        // Small lists: render all, skip virtualization
+        if (renderList.length <= WIN) {
+            virtualActive = false;
+            targetParent.innerHTML = "";
+            renderList.forEach(song => targetParent.appendChild(build_card(song, mode)));
+            return;
+        }
+
+        virtualActive = true;
+        winStart = 0;
+        render_window(true);
+        update_virtual_window();
+    }
+
+    function render_window(measure = false) {
+        if (!virtualActive || !renderParent) return;
+        const mode = currentMode;
+        const total = renderList.length;
+        const winEnd = Math.min(winStart + WIN, total);
+
+        // Revoke previous card object URLs
+        cardObjectUrls.forEach(u => URL.revokeObjectURL(u));
+        cardObjectUrls = [];
+
+        renderParent.innerHTML = "";
+
+        const topSpacer = document.createElement("div");
+        const bottomSpacer = document.createElement("div");
+
+        renderParent.appendChild(topSpacer);
+        for (let i = winStart; i < winEnd; i++) {
+            renderParent.appendChild(build_card(renderList[i], mode));
+        }
+        renderParent.appendChild(bottomSpacer);
+
+        // Measure row height once from a real card (offsetHeight + 8px flex gap)
+        if (measure || !rowH) {
+            const firstCard = renderParent.querySelector(".list-item-box");
+            if (firstCard) rowH = firstCard.offsetHeight + 8;
+        }
+
+        topSpacer.style.height = (winStart * rowH) + "px";
+        bottomSpacer.style.height = (Math.max(0, total - winEnd) * rowH) + "px";
+    }
+
+    function update_virtual_window() {
+        if (!virtualActive || !renderParent || !rowH) return;
+        const total = renderList.length;
+        // viewport Y of virtual index 0 (container top; cards sit at containerTop + i*rowH)
+        const containerTop = renderParent.getBoundingClientRect().top;
+        const firstVisible = Math.floor(-containerTop / rowH);
+
+        // Keep ~THRESH of the window as lead buffer above the viewport top,
+        // snap to STEP so we only re-render every STEP rows (idempotent -> no oscillation).
+        const margin = Math.round(THRESH * WIN);
+        let target = Math.floor((firstVisible - margin) / STEP) * STEP;
+        target = Math.max(0, Math.min(target, total - WIN));
+
+        if (target !== winStart) {
+            winStart = target;
+            render_window();
+        }
     }
 
     async function create_saved_song_list() {
@@ -1622,9 +1733,18 @@
         document.getElementById("side-menu-overlay").classList.toggle("active");
     }
 
+    let scrollRaf = false;
     window.addEventListener('scroll', () => {
         if (window.scrollY > 300 && player.src !== "") miniPlayer.classList.add('active');
         else miniPlayer.classList.remove('active');
+
+        if (!scrollRaf) {
+            scrollRaf = true;
+            requestAnimationFrame(() => {
+                scrollRaf = false;
+                update_virtual_window();
+            });
+        }
     });
 
     player.onplay = () => {
@@ -1632,6 +1752,7 @@
         requestWakeLock();
     };
     player.onpause = () => {
+        if (isLoading) return;
         set_play_state("play");
         releaseWakeLock();
     };
@@ -1667,6 +1788,12 @@
             player.play();
         }
     };
+
+    if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+            navigator.serviceWorker.register('/service-worker.js');
+        });
+    }
 
     document.addEventListener("DOMContentLoaded", async () => {
         await initDB();

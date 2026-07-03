@@ -1,11 +1,18 @@
-const CACHE_NAME = "Aura-V4.4";
+const CACHE_NAME = "Aura-V4.5";
 const urlsToCache = [
   "/",
   "/static/css/all.min.css",
   "/static/manifest.json",
   "/static/css/myToastr.css",
   "/static/js/myToastr.js",
+  "/static/icons/icon-48.png",
+  "/static/icons/icon-72.png",
+  "/static/icons/icon-96.png",
+  "/static/icons/icon-128.png",
+  "/static/icons/icon-144.png",
   "/static/icons/icon-192.png",
+  "/static/icons/icon-256.png",
+  "/static/icons/icon-384.png",
   "/static/icons/icon-512.png",
   "/static/icons/pause.png",
   "/static/icons/play.webp",
@@ -25,6 +32,7 @@ self.addEventListener("install", event => {
       return cache.addAll(urlsToCache);
     })
   );
+  self.skipWaiting();
   console.log("Service Worker installed");
 });
 
@@ -37,35 +45,30 @@ self.addEventListener("activate", event => {
           .filter(name => name !== CACHE_NAME)
           .map(name => caches.delete(name))
       );
-    })
+    }).then(() => self.clients.claim())
   );
   console.log("Service Worker activated");
 });
 
 self.addEventListener('fetch', event => {
+  // Only handle GET; let range/audio/other requests pass through
+  if (event.request.method !== 'GET') return;
+
   event.respondWith(
-    caches.match(event.request)
-      .then(response => {
-        // Return from cache if available
-        if (response) {
-          return response;
-        }
-        // Otherwise, fetch from network
-        return fetch(event.request)
-          .then(response => {
-            // Don't cache non-successful responses
-            if (!response || response.status !== 200 || response.type === 'error') {
-              return response;
-            }
-            // Clone and cache the successful response
+    caches.match(event.request).then(cached => {
+      // Revalidate in background: fetch network, update cache
+      const networkFetch = fetch(event.request)
+        .then(response => {
+          if (response && response.status === 200 && response.type !== 'error') {
             const copy = response.clone();
             caches.open(CACHE_NAME).then(cache => cache.put(event.request, copy));
-            return response;
-          });
-      })
-      .catch(() => {
-        // Return a custom offline response if needed
-        console.log('Fetch failed for:', event.request.url);
-      })
+          }
+          return response;
+        })
+        .catch(() => cached); // offline: fall back to cache
+
+      // Serve cache first (instant), else wait network
+      return cached || networkFetch;
+    })
   );
 });
