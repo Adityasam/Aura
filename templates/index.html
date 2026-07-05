@@ -304,6 +304,20 @@
             transform: scale(1.1);
         }
 
+        .play-spinner {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            border: 4px solid rgba(255, 77, 77, 0.2);
+            border-top-color: var(--orange);
+            box-shadow: 0 10px 25px rgba(255, 77, 77, 0.25);
+            animation: play-spin 0.8s linear infinite;
+        }
+
+        @keyframes play-spin {
+            to { transform: rotate(360deg); }
+        }
+
         .play-btn-main {
             width: 60px;
             height: 60px;
@@ -402,6 +416,70 @@
             padding: 0 1.5rem 8rem;
         }
 
+        .eq-loader {
+            display: inline-flex;
+            align-items: flex-end;
+            justify-content: center;
+            gap: 5px;
+            height: 40px;
+        }
+
+        .eq-loader span {
+            width: 5px;
+            height: 100%;
+            border-radius: 3px;
+            background: linear-gradient(180deg, #ff6b6b, #ff4d4d);
+            transform-origin: bottom;
+            animation: eq-bounce 1s ease-in-out infinite;
+        }
+
+        .eq-loader span:nth-child(1) { animation-delay: 0s; }
+        .eq-loader span:nth-child(2) { animation-delay: 0.15s; }
+        .eq-loader span:nth-child(3) { animation-delay: 0.3s; }
+        .eq-loader span:nth-child(4) { animation-delay: 0.45s; }
+        .eq-loader span:nth-child(5) { animation-delay: 0.6s; }
+
+        @keyframes eq-bounce {
+            0%, 100% { transform: scaleY(0.25); opacity: 0.6; }
+            50%      { transform: scaleY(1);    opacity: 1; }
+        }
+
+        .eq-loader-text {
+            margin-top: 12px;
+            font-size: 0.85rem;
+            font-weight: 500;
+            color: var(--text-secondary);
+            letter-spacing: 0.3px;
+        }
+
+        .empty-state {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            gap: 8px;
+            padding: 60px 20px;
+            color: var(--text-secondary);
+        }
+
+        .empty-state i {
+            font-size: 2.4rem;
+            opacity: 0.35;
+            margin-bottom: 6px;
+        }
+
+        .empty-state .empty-title {
+            font-size: 1rem;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .empty-state .empty-sub {
+            font-size: 0.82rem;
+            opacity: 0.7;
+        }
+
         .list-item-box {
             background: var(--glass);
             border-radius: var(--radius-lg);
@@ -413,12 +491,20 @@
             cursor: pointer;
             border: 1px solid var(--glass-border);
             backdrop-filter: blur(10px);
+            user-select: none;
+            -webkit-user-select: none;
+            -webkit-touch-callout: none;
         }
 
         .list-item-box:hover {
             background: var(--surface-hover);
-            transform: translateX(5px);
             border-color: rgba(255, 255, 255, 0.2);
+            box-shadow: 0 0 16px rgba(255, 77, 77, 0.25);
+        }
+
+        .list-item-box:active {
+            box-shadow: 0 0 22px rgba(255, 77, 77, 0.45);
+            border-color: rgba(255, 77, 77, 0.4);
         }
 
         .list-item-box.selected {
@@ -453,9 +539,23 @@
             color: var(--text-secondary);
             font-size: 0.8rem;
             font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            min-width: 0;
+        }
+
+        .atrist-name .artist-text {
+            flex: 1;
+            min-width: 0;
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
+        }
+
+        .atrist-name .song-duration {
+            flex: none;
+            white-space: nowrap;
         }
 
         .delbtn {
@@ -947,7 +1047,7 @@
                                 <img src="/static/icons/play.webp" alt="" onclick="player.play()" id="play-btn" class="play-btn-main">
                                 <img src="/static/icons/pause.png" onclick="player.pause()" alt="" hidden id="pause-btn" class="play-btn-main">
                                 <div id="song-loader" hidden class="position-absolute top-50 start-50 translate-middle">
-                                    <img src="/static/img/loader.gif" width="30" alt="">
+                                    <div class="play-spinner"></div>
                                 </div>
                             </div>
                             <i class="fas fa-forward control-btn" onclick="next_song()"></i>
@@ -979,10 +1079,17 @@
             </div>
 
             <div id="song-loading" hidden class="text-center p-3">
-                <img src="/static/img/page_loader.gif" alt="" style="width: 32px;">
+                <div class="eq-loader" aria-label="Loading">
+                    <span></span><span></span><span></span><span></span><span></span>
+                </div>
+                <div class="eq-loader-text">Finding songs...</div>
             </div>
             <div class="online-list-container mx-auto" id="song-list"></div>
-            <div id="no-result" hidden>No results found</div>
+            <div id="no-result" class="empty-state" hidden>
+                <i class="fas fa-magnifying-glass"></i>
+                <div class="empty-title">No results found</div>
+                <div class="empty-sub">Try a different search</div>
+            </div>
         </div>
 
         <div class="mode-block" id="offline-block">
@@ -997,7 +1104,11 @@
                 </div>
             </div>
             <div class="offline-list-container mx-auto" id="offline-song-list"></div>
-            <div id="no-result-offline" hidden>Library is empty</div>
+            <div id="no-result-offline" class="empty-state" hidden>
+                <i class="fas fa-music"></i>
+                <div class="empty-title">Library is empty</div>
+                <div class="empty-sub">Saved songs will appear here</div>
+            </div>
         </div>
     </div>
 
@@ -1029,7 +1140,6 @@
             <div class="song-name">Song Name</div>
             <div class="atrist-name">Artist Name</div>
         </div>
-        <i class="fas fa-ellipsis-v options-btn" onclick="open_options(event)"></i>
     </div>
 
     <!-- Options Popup -->
@@ -1117,6 +1227,7 @@
     let currentMode = "offline";
     let currentType = "song";
     let currentSongId = "";
+    let currentSongDuration = 0;   // known total length (sec) for the playing song; used while MSE duration is Infinity
     let currentPlayType = "loop";
     let isLoading = false;
     let currentImageObjectUrl = null;
@@ -1194,23 +1305,18 @@
 
     let currentOptionSong = null;
 
-    function open_options(e) {
-        e.stopPropagation();
-        const box = e.target.closest('.list-item-box');
-        const id = box.getAttribute('data-song-id');
-        const list = currentMode === "offline" ? savedSongs : searchResults;
-        currentOptionSong = list.find(s => s.id === id);
+    function show_options(song) {
+        if (!song) return;
+        currentOptionSong = song;
 
-        if (currentOptionSong) {
-            document.getElementById('opt-title').innerText = currentOptionSong.song_name;
-            document.getElementById('opt-artist').innerText = currentOptionSong.artist_name || 'Unknown Artist';
-            
-            // Hide delete if in online mode (discovery)
-            document.getElementById('opt-delete').style.display = currentMode === 'offline' ? 'flex' : 'none';
+        document.getElementById('opt-title').innerText = song.song_name;
+        document.getElementById('opt-artist').innerText = song.artist_name || 'Unknown Artist';
 
-            document.getElementById('options-popup').classList.add('active');
-            document.getElementById('options-overlay').classList.add('active');
-        }
+        // Hide delete if in online mode (discovery)
+        document.getElementById('opt-delete').style.display = currentMode === 'offline' ? 'flex' : 'none';
+
+        document.getElementById('options-popup').classList.add('active');
+        document.getElementById('options-overlay').classList.add('active');
     }
 
     function close_options() {
@@ -1366,6 +1472,7 @@
     }
 
     function formatTime(seconds) {
+        if (!isFinite(seconds) || seconds < 0) seconds = 0;
         const min = Math.floor(seconds / 60);
         const sec = Math.floor(seconds % 60);
         return (min < 10 ? '0' : '') + min + ":" + (sec < 10 ? '0' : '') + sec;
@@ -1489,6 +1596,7 @@
         try {
             const id = song.id;
             currentSongId = song.id;
+            currentSongDuration = Number(song.duration) || 0;
             localStorage.setItem("lastPlayedSong", JSON.stringify(song));
 
             document.querySelectorAll(".list-item-box").forEach(box => {
@@ -1529,6 +1637,10 @@
             updateMediaSession(song);
             set_play_state(autoPlay ? "loading" : "play");
 
+            // Show known length immediately; overwritten with exact value on loadedmetadata
+            if (song.duration) total_time.textContent = formatTime(song.duration);
+            else if (song.duration_text) total_time.textContent = song.duration_text;
+
             if (savedData && savedData.blob instanceof Blob) {
                 if (currentAudioObjectUrl) URL.revokeObjectURL(currentAudioObjectUrl);
                 currentAudioObjectUrl = URL.createObjectURL(savedData.blob);
@@ -1544,24 +1656,97 @@
                     set_play_state("loading");
                 }
                 const fetchType = song.resultType || "song";
-                fetch(`/load_song?id=${id}&type=${fetchType}`)
-                    .then(res => res.blob())
-                    .then(blob => {
-                        if (blob instanceof Blob) {
-                            if (currentAudioObjectUrl) URL.revokeObjectURL(currentAudioObjectUrl);
-                            currentAudioObjectUrl = URL.createObjectURL(blob);
-                            player.src = currentAudioObjectUrl;
-                            isLoading = false;
-                            if (autoPlay) player.play().catch(() => set_play_state("play"));
-                            song["blob"] = blob;
-                            saveBlob(song);
-                        }
-                    })
-                    .catch(() => { isLoading = false; set_play_state("play"); });
+                const canStream = fetchType === "song"
+                    && window.MediaSource
+                    && MediaSource.isTypeSupported('audio/mp4; codecs="mp4a.40.2"');
+
+                if (canStream) {
+                    streamSong(song, id, fetchType, autoPlay, needsImageUpdate);
+                } else {
+                    legacyLoad(song, id, fetchType, autoPlay, needsImageUpdate);
+                }
             }
         } catch (err) {
             console.error(err);
         }
+    }
+
+    // Chunked streaming playback via MediaSource. Starts on first chunk, saves one blob at end.
+    async function streamSong(song, id, fetchType, autoPlay, needsImageUpdate) {
+        const ms = new MediaSource();
+        if (currentAudioObjectUrl) URL.revokeObjectURL(currentAudioObjectUrl);
+        currentAudioObjectUrl = URL.createObjectURL(ms);
+        player.src = currentAudioObjectUrl;
+
+        const chunks = [];   // kept for single IndexedDB save at end
+        const queue = [];    // pending appends (SourceBuffer handles one at a time)
+        let sb = null, streamEnded = false, started = false;
+
+        const pump = () => {
+            if (!sb || sb.updating || queue.length === 0) return;
+            try { sb.appendBuffer(queue.shift()); } catch (e) { console.error(e); }
+        };
+        const tryEnd = () => {
+            if (streamEnded && sb && !sb.updating && queue.length === 0 && ms.readyState === "open") {
+                try { ms.endOfStream(); } catch (e) {}
+            }
+        };
+
+        await new Promise((resolve) => {
+            ms.addEventListener("sourceopen", () => {
+                sb = ms.addSourceBuffer('audio/mp4; codecs="mp4a.40.2"');
+                sb.addEventListener("updateend", () => { pump(); tryEnd(); });
+                resolve();
+            }, { once: true });
+        });
+
+        try {
+            const res = await fetch(`/load_song_stream?id=${id}&type=${fetchType}`);
+            if (!res.ok || !res.body) throw new Error("stream unavailable");
+            const reader = res.body.getReader();
+
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+                chunks.push(value);
+                queue.push(value);
+                pump();
+                if (!started) {
+                    started = true;
+                    isLoading = false;
+                    if (autoPlay) player.play().catch(() => set_play_state("play"));
+                }
+            }
+
+            streamEnded = true;
+            tryEnd();
+
+            const blob = new Blob(chunks, { type: "audio/mp4" });
+            song["blob"] = blob;
+            saveBlob(song);   // single write: all chunks merged into one IndexedDB record
+        } catch (err) {
+            console.error("stream failed, falling back", err);
+            try { if (ms.readyState === "open") ms.endOfStream(); } catch (e) {}
+            legacyLoad(song, id, fetchType, autoPlay, needsImageUpdate);
+        }
+    }
+
+    // Original whole-file download path (fallback / non-song types)
+    function legacyLoad(song, id, fetchType, autoPlay, needsImageUpdate) {
+        fetch(`/load_song?id=${id}&type=${fetchType}`)
+            .then(res => res.blob())
+            .then(blob => {
+                if (blob instanceof Blob) {
+                    if (currentAudioObjectUrl) URL.revokeObjectURL(currentAudioObjectUrl);
+                    currentAudioObjectUrl = URL.createObjectURL(blob);
+                    player.src = currentAudioObjectUrl;
+                    isLoading = false;
+                    if (autoPlay) player.play().catch(() => set_play_state("play"));
+                    song["blob"] = blob;
+                    saveBlob(song);
+                }
+            })
+            .catch(() => { isLoading = false; set_play_state("play"); });
     }
 
     function search_song() {
@@ -1589,6 +1774,38 @@
             });
     }
 
+    // Tap = play, press-and-hold (or right-click) = context menu
+    function attach_card_gestures(el, song) {
+        let timer = null, longPressed = false, sx = 0, sy = 0;
+        const LONG_MS = 500, MOVE_TOL = 10;
+
+        const cancel = () => { if (timer) { clearTimeout(timer); timer = null; } };
+
+        el.addEventListener("pointerdown", (e) => {
+            longPressed = false;
+            sx = e.clientX; sy = e.clientY;
+            cancel();
+            timer = setTimeout(() => {
+                longPressed = true;
+                timer = null;
+                if (navigator.vibrate) navigator.vibrate(15);
+                show_options(song);
+            }, LONG_MS);
+        });
+        el.addEventListener("pointermove", (e) => {
+            if (timer && (Math.abs(e.clientX - sx) > MOVE_TOL || Math.abs(e.clientY - sy) > MOVE_TOL)) cancel();
+        });
+        el.addEventListener("pointerup", cancel);
+        el.addEventListener("pointercancel", cancel);
+        el.addEventListener("pointerleave", cancel);
+
+        el.addEventListener("click", (e) => {
+            if (longPressed) { e.preventDefault(); e.stopPropagation(); longPressed = false; return; }
+            load_song(song);
+        });
+        el.addEventListener("contextmenu", (e) => { e.preventDefault(); show_options(song); });
+    }
+
     function build_card(song, mode) {
         const temp = song_temp.cloneNode(true);
         temp.hidden = false;
@@ -1604,8 +1821,9 @@
 
         temp.querySelector("img").src = displayImage;
         temp.querySelector(".song-name").innerHTML = song.song_name;
-        temp.querySelector(".atrist-name").innerHTML = song.artist_name;
-        temp.onclick = () => load_song(song);
+        const durHtml = (mode !== "offline" && song.duration_text) ? `<span class="song-duration">${song.duration_text}</span>` : "";
+        temp.querySelector(".atrist-name").innerHTML = `<span class="artist-text">${song.artist_name}</span>${durHtml}`;
+        attach_card_gestures(temp, song);
         return temp;
     }
 
@@ -1630,6 +1848,9 @@
         const hasResults = renderList.length > 0;
         if (mode === "offline") noresult_offline.hidden = hasResults;
         else noresult.hidden = hasResults;
+
+        // Hide the list container entirely when empty so its padding doesn't show
+        targetParent.hidden = !hasResults;
 
         // Small lists: render all, skip virtualization
         if (renderList.length <= WIN) {
@@ -1756,12 +1977,30 @@
         set_play_state("play");
         releaseWakeLock();
     };
-    player.onloadedmetadata = () => total_time.textContent = formatTime(player.duration);
+    // MSE streams report Infinity until fully buffered; keep the known length until an exact one arrives
+    function refresh_total_time() {
+        if (isFinite(player.duration) && player.duration > 0) total_time.textContent = formatTime(player.duration);
+    }
+    player.onloadedmetadata = refresh_total_time;
+    player.ondurationchange = refresh_total_time;
+
+    // Real duration once known, else the length we got from search (MSE reports Infinity mid-stream)
+    function effectiveDuration() {
+        if (isFinite(player.duration) && player.duration > 0) return player.duration;
+        return currentSongDuration > 0 ? currentSongDuration : 0;
+    }
+
+    // Furthest playable point right now (end of downloaded/buffered data)
+    function bufferedEnd() {
+        return player.buffered.length ? player.buffered.end(player.buffered.length - 1) : 0;
+    }
 
     let isDragging = false;
     player.ontimeupdate = () => {
         if (!isDragging) {
-            const pos = (player.currentTime / player.duration * 100).toFixed(2) + "%";
+            const dur = effectiveDuration();
+            const pct = dur > 0 ? Math.min(player.currentTime / dur * 100, 100) : 0;
+            const pos = pct.toFixed(2) + "%";
             time_slider.style.left = pos;
             time_fill.style.width = pos;
             miniProgressBar.style.width = pos;
@@ -1783,11 +2022,26 @@
     window.onmousemove = (e) => isDragging && handleSeek(e);
     window.onmouseup = (e) => {
         if (isDragging) {
-            player.currentTime = player.duration * handleSeek(e);
+            seekToPercent(handleSeek(e));
             isDragging = false;
             player.play();
         }
     };
+
+    // Seek by fraction of total length; can't jump past what's downloaded yet, so clamp to buffered end
+    function seekToPercent(percent) {
+        const dur = effectiveDuration();
+        if (dur <= 0) return;
+        let target = percent * dur;
+        const maxSeek = bufferedEnd() - 0.3;   // small margin before edge of buffered data
+        if (isFinite(player.duration)) {
+            // fully known/finalized stream: allow anywhere
+            target = Math.min(target, player.duration - 0.1);
+        } else if (target > maxSeek) {
+            target = Math.max(0, maxSeek);      // still streaming: don't seek into un-downloaded region
+        }
+        if (isFinite(target) && target >= 0) player.currentTime = target;
+    }
 
     if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {

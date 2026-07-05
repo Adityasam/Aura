@@ -4,6 +4,10 @@ from flask_cors import CORS
 import yt_dlp
 import os
 import io
+import sys
+import subprocess
+
+FFMPEG_BIN = os.path.join("C:\\", "ffmpeg", "bin", "ffmpeg.exe")
 
 app = Flask(__name__)
 CORS(app)
@@ -20,6 +24,20 @@ def home():
 @app.route('/service-worker.js')
 def service_worker():
     return send_from_directory('.', 'service-worker.js')
+
+def format_duration(seconds):
+    # seconds (int/float) -> "m:ss" or "h:mm:ss"; empty if unknown
+    try:
+        s = int(float(seconds))
+    except (TypeError, ValueError):
+        return ""
+    if s <= 0:
+        return ""
+    h, rem = divmod(s, 3600)
+    m, sec = divmod(rem, 60)
+    if h:
+        return f"{h}:{m:02d}:{sec:02d}"
+    return f"{m}:{sec:02d}"
 
 def get_search_results(query, search_type, limit=10):
     # yt-dlp uses 'ytsearch' for YouTube search.
@@ -76,13 +94,16 @@ def get_search_results(query, search_type, limit=10):
                 if not thumbnail and entry.get("id"):
                     thumbnail = f"https://i.ytimg.com/vi/{entry.get('id')}/hqdefault.jpg"
 
+                duration = entry.get("duration")
                 song_info.append({
                     "song_name": song_name,
                     "artist_name": artist,
                     "image": thumbnail or "",
                     "id": entry.get("id", ""),
                     "category": search_type,
-                    "resultType": search_type
+                    "resultType": search_type,
+                    "duration": duration,
+                    "duration_text": format_duration(duration)
                 })
     except Exception as e:
         print(f"Search error ({search_type}): {str(e)}")
@@ -224,6 +245,77 @@ def load_song():
     except Exception as e:
         print(f"Error downloading {request_type}: {str(e)}")
         return jsonify({"error": str(e)}), 500
- 
+
+
+@app.route("/load_song_stream", methods=['GET'])
+def load_song_stream():
+    songid = request.args.get("id")
+    if not songid:
+        return jsonify({"error": "No ID provided"}), 400
+
+    url = "https://www.youtube.com/watch?v=" + songid
+    # Streamed output is fragmented-MP4 AAC audio, saved as m4a (compatible with /load_song cache)
+    filepath = os.path.join(SONGS_FOLDER, f"{songid}.m4a")
+
+    # Already cached -> stream the file bytes directly
+    if os.path.exists(filepath):
+        def gen_file():
+            with open(filepath, "rb") as fh:
+                while True:
+                    data = fh.read(65536)
+                    if not data:
+                        break
+                    yield data
+        return Response(gen_file(), mimetype="audio/mp4")
+
+    tmp_path = filepath + ".part"
+
+    def generate():
+        # yt-dlp downloads bestaudio to stdout -> piped into ffmpeg -> fragmented MP4 on stdout
+        ytdlp = subprocess.Popen(
+            [sys.executable, "-m", "yt_dlp", "-q", "--no-warnings", "-f", "bestaudio/best", "-o", "-", url],
+            stdout=subprocess.PIPE,
+        )
+        ff = subprocess.Popen(
+            [
+                FFMPEG_BIN, "-hide_banner", "-loglevel", "error",
+                "-i", "pipe:0",
+                "-vn", "-c:a", "aac", "-b:a", "128k",
+                "-f", "mp4",
+                "-movflags", "frag_keyframe+empty_moov+default_base_moof",
+                "-frag_duration", "10000000",
+                "pipe:1",
+            ],
+            stdin=ytdlp.stdout,
+            stdout=subprocess.PIPE,
+        )
+        ytdlp.stdout.close()  # allow ytdlp to get SIGPIPE if ff exits
+
+        out = open(tmp_path, "wb")
+        ok = False
+        try:
+            while True:
+                data = ff.stdout.read(65536)
+                if not data:
+                    break
+                out.write(data)
+                yield data
+            ff.wait()
+            ytdlp.wait()
+            ok = (ff.returncode == 0)
+        finally:
+            out.close()
+            for p in (ff, ytdlp):
+                if p.poll() is None:
+                    p.kill()
+            # Only keep the file if the transcode finished cleanly (atomic rename)
+            if ok and os.path.getsize(tmp_path) > 0:
+                os.replace(tmp_path, filepath)
+            elif os.path.exists(tmp_path):
+                os.remove(tmp_path)
+
+    return Response(generate(), mimetype="audio/mp4")
+
+
 if __name__ == '__main__':
     app.run(debug=True, port=5000)
