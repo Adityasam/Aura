@@ -956,6 +956,48 @@
             .list-item-box { padding: 10px 14px; border-radius: var(--radius-lg); }
             .mini-player { height: 65px; padding: 0.5rem 1rem; }
         }
+
+        /* Desktop: two-column layout (player left, list right) */
+        @media (min-width: 992px) {
+            .app-header,
+            .nav-bar {
+                max-width: 1080px;
+            }
+
+            .container-fluid {
+                display: flex;
+                align-items: flex-start;
+                gap: 2rem;
+                max-width: 1080px;
+                margin: 0 auto;
+                padding: 0 1.5rem 2rem !important;
+            }
+
+            .main-song-container {
+                flex: 0 0 400px;
+                width: 400px;
+                max-width: 400px;
+                margin: 0;
+                position: sticky;
+                top: 100px;
+            }
+
+            .mode-block {
+                flex: 1 1 auto;
+                min-width: 0;
+            }
+
+            .online-list-container,
+            .offline-list-container {
+                max-width: none;
+                padding-bottom: 2rem;
+            }
+
+            /* Mini player is redundant on desktop; full player always visible */
+            .mini-player {
+                display: none !important;
+            }
+        }
     </style>
 </head>
 
