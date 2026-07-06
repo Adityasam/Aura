@@ -4,18 +4,11 @@ from flask_cors import CORS
 import yt_dlp
 import os
 import io
-import sys
-import subprocess
-
-FFMPEG_BIN = os.path.join("C:\\", "ffmpeg", "bin", "ffmpeg.exe")
+import glob
+import tempfile
 
 app = Flask(__name__)
 CORS(app)
-
-# Create songs directory if it doesn't exist
-SONGS_FOLDER = os.path.join(os.path.dirname(os.path.abspath(__file__)), "songs")
-if not os.path.exists(SONGS_FOLDER):
-    os.makedirs(SONGS_FOLDER)
 
 @app.route('/')
 def home():
@@ -191,130 +184,56 @@ def load_song():
     songid = request.args.get("id")
     # Get the type from the request, default to 'song' (audio)
     request_type = request.args.get("type", "song")
-    
+
     if not songid:
         return jsonify({"error": "No ID provided"}), 400
-        
+
     url = "https://www.youtube.com/watch?v=" + songid
-    
-    # Define file extension based on type
     ext = "mp4" if request_type == "video" else "m4a"
-    filename = f"{songid}.{ext}"
-    filepath = os.path.join(SONGS_FOLDER, filename)
+    mimetype = "video/mp4" if request_type == "video" else "audio/mp4"
 
-    # If file already exists, return it immediately
-    if os.path.exists(filepath):
-        mimetype = "video/mp4" if request_type == "video" else "audio/mp4"
-        return send_file(filepath, mimetype=mimetype, as_attachment=False)
-
-    ydl_opts = {
-        'format': 'bestvideo+bestaudio/best' if request_type == 'video' else 'bestaudio/best',
-        'outtmpl': os.path.join(SONGS_FOLDER, f'{songid}.%(ext)s'),
-        'quiet': True,
-        'no_warnings': True,
-        'ffmpeg_location': f'C:\\ffmpeg\\bin',
-    }
-
-    if request_type == 'song':
-        ydl_opts['postprocessors'] = [{
-            'key': 'FFmpegExtractAudio',
-            'preferredcodec': 'm4a',
-        }]
-    else:
-        # For video, ensure it's in a compatible format like mp4
-        ydl_opts['merge_output_format'] = 'mp4'
-
+    # Download into a throwaway temp dir, return bytes to the UI, delete on the way out.
+    # Nothing is persisted server-side; the browser handles offline caching (IndexedDB).
     try:
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            ydl.download([url])
-        
-        # Check for the expected file
-        if os.path.exists(filepath):
-            mimetype = "video/mp4" if request_type == "video" else "audio/mp4"
-            return send_file(filepath, mimetype=mimetype, as_attachment=False)
-        else:
-            # Fallback scan
-            for f in os.listdir(SONGS_FOLDER):
-                if f.startswith(songid) and f.endswith(f".{ext}"):
-                    actual_path = os.path.join(SONGS_FOLDER, f)
-                    mimetype = "video/mp4" if request_type == "video" else "audio/mp4"
-                    return send_file(actual_path, mimetype=mimetype, as_attachment=False)
-            
-            return jsonify({"error": f"File not found after download. Checked {filepath}"}), 500
-            
+        with tempfile.TemporaryDirectory() as tmpdir:
+            ydl_opts = {
+                'format': 'bestvideo+bestaudio/best' if request_type == 'video' else 'bestaudio/best',
+                'outtmpl': os.path.join(tmpdir, f'{songid}.%(ext)s'),
+                'quiet': True,
+                'no_warnings': True,
+                'ffmpeg_location': 'C:\\ffmpeg\\bin',
+            }
+
+            if request_type == 'song':
+                ydl_opts['postprocessors'] = [{
+                    'key': 'FFmpegExtractAudio',
+                    'preferredcodec': 'm4a',
+                }]
+            else:
+                ydl_opts['merge_output_format'] = 'mp4'
+
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                ydl.download([url])
+
+            # Locate the produced file
+            path = os.path.join(tmpdir, f"{songid}.{ext}")
+            if not os.path.exists(path):
+                matches = glob.glob(os.path.join(tmpdir, f"{songid}.*"))
+                if not matches:
+                    return jsonify({"error": "File not found after download"}), 500
+                path = matches[0]
+
+            # Read into memory before the temp dir is removed
+            with open(path, "rb") as fh:
+                data = io.BytesIO(fh.read())
+
+        data.seek(0)
+        return send_file(data, mimetype=mimetype, as_attachment=False,
+                         download_name=f"{songid}.{ext}")
+
     except Exception as e:
         print(f"Error downloading {request_type}: {str(e)}")
         return jsonify({"error": str(e)}), 500
-
-
-@app.route("/load_song_stream", methods=['GET'])
-def load_song_stream():
-    songid = request.args.get("id")
-    if not songid:
-        return jsonify({"error": "No ID provided"}), 400
-
-    url = "https://www.youtube.com/watch?v=" + songid
-    # Streamed output is fragmented-MP4 AAC audio, saved as m4a (compatible with /load_song cache)
-    filepath = os.path.join(SONGS_FOLDER, f"{songid}.m4a")
-
-    # Already cached -> stream the file bytes directly
-    if os.path.exists(filepath):
-        def gen_file():
-            with open(filepath, "rb") as fh:
-                while True:
-                    data = fh.read(65536)
-                    if not data:
-                        break
-                    yield data
-        return Response(gen_file(), mimetype="audio/mp4")
-
-    tmp_path = filepath + ".part"
-
-    def generate():
-        # yt-dlp downloads bestaudio to stdout -> piped into ffmpeg -> fragmented MP4 on stdout
-        ytdlp = subprocess.Popen(
-            [sys.executable, "-m", "yt_dlp", "-q", "--no-warnings", "-f", "bestaudio/best", "-o", "-", url],
-            stdout=subprocess.PIPE,
-        )
-        ff = subprocess.Popen(
-            [
-                FFMPEG_BIN, "-hide_banner", "-loglevel", "error",
-                "-i", "pipe:0",
-                "-vn", "-c:a", "aac", "-b:a", "128k",
-                "-f", "mp4",
-                "-movflags", "frag_keyframe+empty_moov+default_base_moof",
-                "-frag_duration", "10000000",
-                "pipe:1",
-            ],
-            stdin=ytdlp.stdout,
-            stdout=subprocess.PIPE,
-        )
-        ytdlp.stdout.close()  # allow ytdlp to get SIGPIPE if ff exits
-
-        out = open(tmp_path, "wb")
-        ok = False
-        try:
-            while True:
-                data = ff.stdout.read(65536)
-                if not data:
-                    break
-                out.write(data)
-                yield data
-            ff.wait()
-            ytdlp.wait()
-            ok = (ff.returncode == 0)
-        finally:
-            out.close()
-            for p in (ff, ytdlp):
-                if p.poll() is None:
-                    p.kill()
-            # Only keep the file if the transcode finished cleanly (atomic rename)
-            if ok and os.path.getsize(tmp_path) > 0:
-                os.replace(tmp_path, filepath)
-            elif os.path.exists(tmp_path):
-                os.remove(tmp_path)
-
-    return Response(generate(), mimetype="audio/mp4")
 
 
 if __name__ == '__main__':

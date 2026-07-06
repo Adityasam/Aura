@@ -1269,7 +1269,7 @@
     let currentMode = "offline";
     let currentType = "song";
     let currentSongId = "";
-    let currentSongDuration = 0;   // known total length (sec) for the playing song; used while MSE duration is Infinity
+    let currentSongDuration = 0;   // known total length (sec) from search; fallback if player.duration unknown
     let currentPlayType = "loop";
     let isLoading = false;
     let currentImageObjectUrl = null;
@@ -1698,82 +1698,14 @@
                     set_play_state("loading");
                 }
                 const fetchType = song.resultType || "song";
-                const canStream = fetchType === "song"
-                    && window.MediaSource
-                    && MediaSource.isTypeSupported('audio/mp4; codecs="mp4a.40.2"');
-
-                if (canStream) {
-                    streamSong(song, id, fetchType, autoPlay, needsImageUpdate);
-                } else {
-                    legacyLoad(song, id, fetchType, autoPlay, needsImageUpdate);
-                }
+                legacyLoad(song, id, fetchType, autoPlay, needsImageUpdate);
             }
         } catch (err) {
             console.error(err);
         }
     }
 
-    // Chunked streaming playback via MediaSource. Starts on first chunk, saves one blob at end.
-    async function streamSong(song, id, fetchType, autoPlay, needsImageUpdate) {
-        const ms = new MediaSource();
-        if (currentAudioObjectUrl) URL.revokeObjectURL(currentAudioObjectUrl);
-        currentAudioObjectUrl = URL.createObjectURL(ms);
-        player.src = currentAudioObjectUrl;
-
-        const chunks = [];   // kept for single IndexedDB save at end
-        const queue = [];    // pending appends (SourceBuffer handles one at a time)
-        let sb = null, streamEnded = false, started = false;
-
-        const pump = () => {
-            if (!sb || sb.updating || queue.length === 0) return;
-            try { sb.appendBuffer(queue.shift()); } catch (e) { console.error(e); }
-        };
-        const tryEnd = () => {
-            if (streamEnded && sb && !sb.updating && queue.length === 0 && ms.readyState === "open") {
-                try { ms.endOfStream(); } catch (e) {}
-            }
-        };
-
-        await new Promise((resolve) => {
-            ms.addEventListener("sourceopen", () => {
-                sb = ms.addSourceBuffer('audio/mp4; codecs="mp4a.40.2"');
-                sb.addEventListener("updateend", () => { pump(); tryEnd(); });
-                resolve();
-            }, { once: true });
-        });
-
-        try {
-            const res = await fetch(`/load_song_stream?id=${id}&type=${fetchType}`);
-            if (!res.ok || !res.body) throw new Error("stream unavailable");
-            const reader = res.body.getReader();
-
-            while (true) {
-                const { done, value } = await reader.read();
-                if (done) break;
-                chunks.push(value);
-                queue.push(value);
-                pump();
-                if (!started) {
-                    started = true;
-                    isLoading = false;
-                    if (autoPlay) player.play().catch(() => set_play_state("play"));
-                }
-            }
-
-            streamEnded = true;
-            tryEnd();
-
-            const blob = new Blob(chunks, { type: "audio/mp4" });
-            song["blob"] = blob;
-            saveBlob(song);   // single write: all chunks merged into one IndexedDB record
-        } catch (err) {
-            console.error("stream failed, falling back", err);
-            try { if (ms.readyState === "open") ms.endOfStream(); } catch (e) {}
-            legacyLoad(song, id, fetchType, autoPlay, needsImageUpdate);
-        }
-    }
-
-    // Original whole-file download path (fallback / non-song types)
+    // Full-file download: server sends whole song, cache one blob in IndexedDB
     function legacyLoad(song, id, fetchType, autoPlay, needsImageUpdate) {
         fetch(`/load_song?id=${id}&type=${fetchType}`)
             .then(res => res.blob())
