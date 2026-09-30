@@ -7,6 +7,9 @@ import io
 import glob
 import tempfile
 
+# Windows box keeps ffmpeg here; elsewhere yt-dlp finds it on PATH
+FFMPEG_LOCATION = 'C:\\ffmpeg\\bin'
+
 app = Flask(__name__)
 CORS(app)
 
@@ -201,8 +204,9 @@ def load_song():
                 'outtmpl': os.path.join(tmpdir, f'{songid}.%(ext)s'),
                 'quiet': True,
                 'no_warnings': True,
-                'ffmpeg_location': 'C:\\ffmpeg\\bin',
             }
+            if os.path.isdir(FFMPEG_LOCATION):
+                ydl_opts['ffmpeg_location'] = FFMPEG_LOCATION
 
             if request_type == 'song':
                 ydl_opts['postprocessors'] = [{

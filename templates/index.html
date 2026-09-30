@@ -1275,6 +1275,9 @@
     let currentImageObjectUrl = null;
     let currentAudioObjectUrl = null;
     let cardObjectUrls = [];
+    let currentSong = null;
+    let currentAutoPlay = true;
+    let playingSavedFile = false;  // player.src is the saved IndexedDB copy (not a fresh download)
 
     // Virtualized list state
     const WIN = 30, STEP = 10, THRESH = 0.25;
@@ -1343,6 +1346,12 @@
             request.onsuccess = () => resolve(request.result);
             request.onerror = () => resolve(null);
         });
+    }
+
+    // Saved file is usable only if it's a real, non-empty media blob
+    // (a failed download can leave the server's JSON/HTML error stored instead)
+    function isPlayableBlob(blob) {
+        return blob instanceof Blob && blob.size > 0 && !/json|text|html/i.test(blob.type);
     }
 
     let currentOptionSong = null;
@@ -1638,6 +1647,9 @@
         try {
             const id = song.id;
             currentSongId = song.id;
+            currentSong = song;
+            currentAutoPlay = autoPlay;
+            playingSavedFile = false;
             currentSongDuration = Number(song.duration) || 0;
             localStorage.setItem("lastPlayedSong", JSON.stringify(song));
 
@@ -1683,9 +1695,11 @@
             if (song.duration) total_time.textContent = formatTime(song.duration);
             else if (song.duration_text) total_time.textContent = song.duration_text;
 
-            if (savedData && savedData.blob instanceof Blob) {
+            // Always verify the saved file is actually there and playable; otherwise download it
+            if (savedData && isPlayableBlob(savedData.blob)) {
                 if (currentAudioObjectUrl) URL.revokeObjectURL(currentAudioObjectUrl);
                 currentAudioObjectUrl = URL.createObjectURL(savedData.blob);
+                playingSavedFile = true;
                 player.src = currentAudioObjectUrl;
                 if (autoPlay) player.play().catch(() => set_play_state("play"));
                 if (needsImageUpdate) saveBlob(song);
@@ -1708,20 +1722,41 @@
     // Full-file download: server sends whole song, cache one blob in IndexedDB
     function legacyLoad(song, id, fetchType, autoPlay, needsImageUpdate) {
         fetch(`/load_song?id=${id}&type=${fetchType}`)
-            .then(res => res.blob())
-            .then(blob => {
-                if (blob instanceof Blob) {
-                    if (currentAudioObjectUrl) URL.revokeObjectURL(currentAudioObjectUrl);
-                    currentAudioObjectUrl = URL.createObjectURL(blob);
-                    player.src = currentAudioObjectUrl;
-                    isLoading = false;
-                    if (autoPlay) player.play().catch(() => set_play_state("play"));
-                    song["blob"] = blob;
-                    saveBlob(song);
-                }
+            .then(res => {
+                if (!res.ok) throw new Error(`Download failed (${res.status})`);
+                return res.blob();
             })
-            .catch(() => { isLoading = false; set_play_state("play"); });
+            .then(blob => {
+                // Never play or save an error response as if it were the song
+                if (!isPlayableBlob(blob)) throw new Error("Download returned no playable file");
+                if (currentAudioObjectUrl) URL.revokeObjectURL(currentAudioObjectUrl);
+                currentAudioObjectUrl = URL.createObjectURL(blob);
+                playingSavedFile = false;
+                player.src = currentAudioObjectUrl;
+                isLoading = false;
+                if (autoPlay) player.play().catch(() => set_play_state("play"));
+                song["blob"] = blob;
+                saveBlob(song);
+            })
+            .catch(err => {
+                console.error(err);
+                isLoading = false;
+                set_play_state("play");
+                show_toast("Couldn't download song", "error");
+            });
     }
+
+    // Saved file is present but the browser can't play it (corrupt) -> download a fresh copy, once
+    player.onerror = () => {
+        if (!playingSavedFile || !currentSong) return;
+        playingSavedFile = false;
+        const song = currentSong;
+        if (currentAutoPlay) {
+            isLoading = true;
+            set_play_state("loading");
+        }
+        legacyLoad(song, song.id, song.resultType || "song", currentAutoPlay, false);
+    };
 
     function search_song() {
         const searchInput = document.getElementById("search");
