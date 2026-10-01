@@ -11,8 +11,7 @@ import tempfile
 FFMPEG_LOCATION = 'C:\\ffmpeg\\bin'
 
 # YouTube blocks this server's IP unless requests are logged in (cookies/*.txt, Netscape format)
-# and can solve its JS challenges (Node + yt-dlp-ejs). The bgutil PO-token server on 127.0.0.1:4416
-# (bgutil-pot.service) is picked up automatically by the bgutil-ytdlp-pot-provider plugin.
+# and can solve its JS challenges (Node + yt-dlp-ejs)
 COOKIES_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'cookies')
 NODE_PATH = '/opt/node22/bin/node'
 
