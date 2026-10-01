@@ -558,6 +558,13 @@
             white-space: nowrap;
         }
 
+        .song-missing {
+            flex: none;
+            color: var(--text-secondary);
+            font-size: 0.85rem;
+            opacity: 0.7;
+        }
+
         .delbtn {
             width: 32px;
             height: 32px;
@@ -1086,7 +1093,7 @@
                         <div class="d-flex align-items-center gap-4">
                             <i class="fas fa-backward control-btn" onclick="prev_song()"></i>
                             <div class="position-relative">
-                                <img src="/static/icons/play.webp" alt="" onclick="player.play()" id="play-btn" class="play-btn-main">
+                                <img src="/static/icons/play.webp" alt="" onclick="play_current()" id="play-btn" class="play-btn-main">
                                 <img src="/static/icons/pause.png" onclick="player.pause()" alt="" hidden id="pause-btn" class="play-btn-main">
                                 <div id="song-loader" hidden class="position-absolute top-50 start-50 translate-middle">
                                     <div class="play-spinner"></div>
@@ -1169,7 +1176,7 @@
                 </div>
             </div>
             <div class="d-flex gap-2">
-                <i class="fas fa-play" id="mini-play-btn" onclick="player.play()" style="cursor: pointer; color: var(--orange); font-size: 1.1rem;"></i>
+                <i class="fas fa-play" id="mini-play-btn" onclick="play_current()" style="cursor: pointer; color: var(--orange); font-size: 1.1rem;"></i>
                 <i class="fas fa-pause" id="mini-pause-btn" hidden onclick="player.pause()" style="cursor: pointer; color: var(--orange); font-size: 1.1rem;"></i>
             </div>
         </div>
@@ -1278,6 +1285,8 @@
     let currentSong = null;
     let currentAutoPlay = true;
     let playingSavedFile = false;  // player.src is the saved IndexedDB copy (not a fresh download)
+    let downloadingId = null;      // song id whose file is being downloaded right now
+    let playRequestedId = null;    // play was pressed while that download was still running
 
     // Virtualized list state
     const WIN = 30, STEP = 10, THRESH = 0.25;
@@ -1621,7 +1630,7 @@
                 ]
             });
 
-            navigator.mediaSession.setActionHandler('play', () => player.play());
+            navigator.mediaSession.setActionHandler('play', () => play_current());
             navigator.mediaSession.setActionHandler('pause', () => player.pause());
             navigator.mediaSession.setActionHandler('previoustrack', () => prev_song());
             navigator.mediaSession.setActionHandler('nexttrack', () => next_song());
@@ -1721,6 +1730,7 @@
 
     // Full-file download: server sends whole song, cache one blob in IndexedDB
     function legacyLoad(song, id, fetchType, autoPlay, needsImageUpdate) {
+        downloadingId = id;
         fetch(`/load_song?id=${id}&type=${fetchType}`)
             .then(res => {
                 if (!res.ok) throw new Error(`Download failed (${res.status})`);
@@ -1734,16 +1744,37 @@
                 playingSavedFile = false;
                 player.src = currentAudioObjectUrl;
                 isLoading = false;
-                if (autoPlay) player.play().catch(() => set_play_state("play"));
+                if (downloadingId === id) downloadingId = null;
+                if (autoPlay || playRequestedId === id) player.play().catch(() => set_play_state("play"));
+                if (playRequestedId === id) playRequestedId = null;
                 song["blob"] = blob;
                 saveBlob(song);
             })
             .catch(err => {
                 console.error(err);
                 isLoading = false;
+                if (downloadingId === id) downloadingId = null;
+                if (playRequestedId === id) playRequestedId = null;
                 set_play_state("play");
                 show_toast("Couldn't download song", "error");
             });
+    }
+
+    // Play button (player card, mini player, media keys): only play if the selected song's file is loaded;
+    // otherwise reload it, which uses the saved copy if it's playable and downloads it if not
+    function play_current() {
+        if (!currentSong) return;
+        if (downloadingId === currentSong.id) {
+            // File is already downloading -> start playing as soon as it arrives
+            playRequestedId = currentSong.id;
+            set_play_state("loading");
+            return;
+        }
+        if (player.getAttribute("src") && !player.error) {
+            player.play().catch(() => load_song(currentSong, true));
+            return;
+        }
+        load_song(currentSong, true);
     }
 
     // Saved file is present but the browser can't play it (corrupt) -> download a fresh copy, once
@@ -1832,6 +1863,10 @@
         temp.querySelector(".song-name").innerHTML = song.song_name;
         const durHtml = (mode !== "offline" && song.duration_text) ? `<span class="song-duration">${song.duration_text}</span>` : "";
         temp.querySelector(".atrist-name").innerHTML = `<span class="artist-text">${song.artist_name}</span>${durHtml}`;
+        // Library entry without a usable music file (e.g. imported or failed download) -> mark it; click downloads
+        if (mode === "offline" && !isPlayableBlob(song.blob)) {
+            temp.insertAdjacentHTML("beforeend", `<i class="fas fa-cloud-download-alt song-missing" title="Not downloaded - tap to download"></i>`);
+        }
         attach_card_gestures(temp, song);
         return temp;
     }
