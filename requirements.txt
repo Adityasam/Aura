@@ -3,4 +3,3 @@ flask-cors
 requests
 yt-dlp
 yt-dlp-ejs
-bgutil-ytdlp-pot-provider
