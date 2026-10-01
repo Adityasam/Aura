@@ -1,0 +1,16 @@
+# Store all text files with LF line endings in the repo.
+# Git converts them to the platform's line endings on checkout (CRLF on Windows with core.autocrlf).
+* text=auto
+
+# Never touch binary files
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.webp binary
+*.ico binary
+*.ttf binary
+*.woff binary
+*.woff2 binary
+*.mp3 binary
+*.m4a binary
