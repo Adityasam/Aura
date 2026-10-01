@@ -7,6 +7,24 @@ import io
 import glob
 import tempfile
 
+# Windows box keeps ffmpeg here; elsewhere yt-dlp finds it on PATH
+FFMPEG_LOCATION = 'C:\\ffmpeg\\bin'
+
+# YouTube blocks this server's IP unless requests are logged in (cookies/*.txt, Netscape format)
+# and can solve its JS challenges (Node + yt-dlp-ejs). The bgutil PO-token server on 127.0.0.1:4416
+# (bgutil-pot.service) is picked up automatically by the bgutil-ytdlp-pot-provider plugin.
+COOKIES_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'cookies')
+NODE_PATH = '/opt/node22/bin/node'
+
+def youtube_auth_opts():
+    opts = {}
+    cookies = sorted(glob.glob(os.path.join(COOKIES_DIR, '*.txt')))
+    if cookies:
+        opts['cookiefile'] = cookies[0]
+    if os.path.exists(NODE_PATH):
+        opts['js_runtimes'] = {'node': {'path': NODE_PATH}}
+    return opts
+
 app = Flask(__name__)
 CORS(app)
 
@@ -124,6 +142,7 @@ def get_song_info():
         'quiet': True,
         'no_warnings': True,
         'skip_download': True,
+        **youtube_auth_opts(),
     }
     
     try:
@@ -201,8 +220,10 @@ def load_song():
                 'outtmpl': os.path.join(tmpdir, f'{songid}.%(ext)s'),
                 'quiet': True,
                 'no_warnings': True,
-                'ffmpeg_location': 'C:\\ffmpeg\\bin',
             }
+            if os.path.isdir(FFMPEG_LOCATION):
+                ydl_opts['ffmpeg_location'] = FFMPEG_LOCATION
+            ydl_opts.update(youtube_auth_opts())
 
             if request_type == 'song':
                 ydl_opts['postprocessors'] = [{

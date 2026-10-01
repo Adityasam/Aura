@@ -1,3 +1,7 @@
 songs/*
 web.config
 CLAUDE.md
+cookies/
+venv/
+__pycache__/
+.github/workflows/deploy.yml
