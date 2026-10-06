@@ -1287,6 +1287,12 @@
     let playingSavedFile = false;  // player.src is the saved IndexedDB copy (not a fresh download)
     let downloadingId = null;      // song id whose file is being downloaded right now
     let playRequestedId = null;    // play was pressed while that download was still running
+    let streamCtl = null;          // AbortController of the song stream feeding the player right now
+
+    // Streaming: songs play from the first ~10 s chunk via MediaSource (ManagedMediaSource on iPhone/iPad)
+    const STREAM_TYPE = 'audio/mp4; codecs="mp4a.40.2"';
+    const StreamSource = window.ManagedMediaSource || window.MediaSource;
+    const canStream = !!StreamSource && StreamSource.isTypeSupported(STREAM_TYPE);
 
     // Virtualized list state
     const WIN = 30, STEP = 10, THRESH = 0.25;
@@ -1655,6 +1661,7 @@
     async function load_song(song, autoPlay = true) {
         try {
             const id = song.id;
+            stopStream();  // switching songs: drop the previous download (it would be fed into the wrong song)
             currentSongId = song.id;
             currentSong = song;
             currentAutoPlay = autoPlay;
@@ -1721,11 +1728,103 @@
                     set_play_state("loading");
                 }
                 const fetchType = song.resultType || "song";
-                legacyLoad(song, id, fetchType, autoPlay, needsImageUpdate);
+                if (fetchType === "song" && canStream) streamLoad(song, id, autoPlay);
+                else legacyLoad(song, id, fetchType, autoPlay, needsImageUpdate);
             }
         } catch (err) {
             console.error(err);
         }
+    }
+
+    function stopStream() {
+        if (!streamCtl) return;
+        streamCtl.abort();
+        streamCtl = null;
+        downloadingId = playRequestedId = null;
+    }
+
+    // Streamed download: the server sends the song as ~10 s fragmented-MP4 chunks. Each chunk goes straight into
+    // the player (playback starts on the first one) and is kept, so the whole song is saved once it's complete.
+    function streamLoad(song, id, autoPlay) {
+        const ctl = streamCtl = new AbortController();
+        downloadingId = id;
+        const ms = new StreamSource();
+        if (StreamSource === window.ManagedMediaSource) player.disableRemotePlayback = true;  // required by Safari's MMS
+        if (currentAudioObjectUrl) URL.revokeObjectURL(currentAudioObjectUrl);
+        currentAudioObjectUrl = URL.createObjectURL(ms);
+        playingSavedFile = false;
+        player.src = currentAudioObjectUrl;
+
+        ms.addEventListener("sourceopen", async () => {
+            const sb = ms.addSourceBuffer(STREAM_TYPE);
+            // Full-length seek bar right away (when the length is known), so later parts can be picked
+            if (currentSongDuration > 0) ms.duration = currentSongDuration;
+            const queue = [], chunks = [];
+            let started = false, fellBack = false;
+            // A SourceBuffer takes one append at a time; updateend pulls the next queued chunk
+            const pump = () => {
+                if (ctl.signal.aborted || sb.updating || !queue.length || ms.readyState !== "open") return;
+                const buf = queue.shift();
+                try {
+                    sb.appendBuffer(buf);
+                } catch (e) {
+                    if (e.name !== "QuotaExceededError") throw e;
+                    // very long audio: free what's already been played, then retry
+                    queue.unshift(buf);
+                    const playedTo = player.currentTime - 10;
+                    if (playedTo > 0) sb.remove(0, playedTo); else setTimeout(pump, 1000);
+                }
+            };
+            sb.addEventListener("updateend", pump);
+            const drained = () => new Promise(resolve => {
+                const check = () => (!queue.length && !sb.updating) ? resolve() : sb.addEventListener("updateend", check, { once: true });
+                check();
+            });
+
+            try {
+                const res = await fetch(`/stream_song?id=${encodeURIComponent(id)}`, { signal: ctl.signal });
+                if (!res.ok || !res.body) throw new Error(`Stream failed (${res.status})`);
+                const reader = res.body.getReader();
+                for (;;) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+                    chunks.push(value);
+                    queue.push(value);
+                    pump();
+                    if (!started) {
+                        // first chunk is in: start playing; the rest keeps arriving in the background
+                        started = true;
+                        isLoading = false;
+                        if (autoPlay || playRequestedId === id) player.play().catch(() => set_play_state("play"));
+                        if (playRequestedId === id) playRequestedId = null;
+                    }
+                }
+                await drained();
+                if (ctl.signal.aborted) return;
+                if (ms.readyState === "open") ms.endOfStream();  // exact duration known now; seeking anywhere works
+                const blob = new Blob(chunks, { type: "audio/mp4" });
+                if (!isPlayableBlob(blob)) throw new Error("Stream returned no playable audio");
+                song["blob"] = blob;
+                saveBlob(song);
+            } catch (err) {
+                if (ctl.signal.aborted) return;  // listener switched songs
+                console.error(err);
+                if (!started) {
+                    // nothing played yet: fall back to the whole-file download
+                    if (streamCtl === ctl) streamCtl = null;
+                    fellBack = true;
+                    legacyLoad(song, id, "song", autoPlay, false);
+                    return;
+                }
+                isLoading = false;
+                set_play_state(player.paused ? "play" : "pause");
+                show_toast("Song download interrupted", "error");
+            } finally {
+                if (streamCtl === ctl) streamCtl = null;
+                // aborted: stopStream already cleared it; fell back: legacyLoad owns it now
+                if (!ctl.signal.aborted && !fellBack && downloadingId === id) downloadingId = null;
+            }
+        }, { once: true });
     }
 
     // Full-file download: server sends whole song, cache one blob in IndexedDB
@@ -1764,14 +1863,15 @@
     // otherwise reload it, which uses the saved copy if it's playable and downloads it if not
     function play_current() {
         if (!currentSong) return;
+        if (player.getAttribute("src") && !player.error && (streamCtl || downloadingId !== currentSong.id)) {
+            // file loaded, or streaming (plays from the downloaded part; waits at the edge if needed)
+            player.play().catch(() => load_song(currentSong, true));
+            return;
+        }
         if (downloadingId === currentSong.id) {
             // File is already downloading -> start playing as soon as it arrives
             playRequestedId = currentSong.id;
             set_play_state("loading");
-            return;
-        }
-        if (player.getAttribute("src") && !player.error) {
-            player.play().catch(() => load_song(currentSong, true));
             return;
         }
         load_song(currentSong, true);
@@ -1779,6 +1879,12 @@
 
     // Saved file is present but the browser can't play it (corrupt) -> download a fresh copy, once
     player.onerror = () => {
+        if (streamCtl && currentSong) {
+            // the stream couldn't be decoded -> download the whole file the old way
+            stopStream();
+            legacyLoad(currentSong, currentSong.id, "song", currentAutoPlay, false);
+            return;
+        }
         if (!playingSavedFile || !currentSong) return;
         playingSavedFile = false;
         const song = currentSong;
@@ -2016,6 +2122,10 @@
         set_play_state("pause");
         requestWakeLock();
     };
+    // Playback reached audio that isn't downloaded yet (e.g. seeked ahead while streaming): show the loader;
+    // the player continues by itself once the download gets there
+    player.onwaiting = () => { if (!player.paused) set_play_state("loading"); };
+    player.onplaying = () => set_play_state("pause");
     player.onpause = () => {
         if (isLoading) return;
         set_play_state("play");
@@ -2032,11 +2142,6 @@
     function effectiveDuration() {
         if (isFinite(player.duration) && player.duration > 0) return player.duration;
         return currentSongDuration > 0 ? currentSongDuration : 0;
-    }
-
-    // Furthest playable point right now (end of downloaded/buffered data)
-    function bufferedEnd() {
-        return player.buffered.length ? player.buffered.end(player.buffered.length - 1) : 0;
     }
 
     let isDragging = false;
@@ -2072,18 +2177,12 @@
         }
     };
 
-    // Seek by fraction of total length; can't jump past what's downloaded yet, so clamp to buffered end
+    // Seek by fraction of total length. Anywhere is allowed, also past what's downloaded so far while streaming:
+    // the player then shows the loader (onwaiting) and continues when the download reaches that point.
     function seekToPercent(percent) {
         const dur = effectiveDuration();
         if (dur <= 0) return;
-        let target = percent * dur;
-        const maxSeek = bufferedEnd() - 0.3;   // small margin before edge of buffered data
-        if (isFinite(player.duration)) {
-            // fully known/finalized stream: allow anywhere
-            target = Math.min(target, player.duration - 0.1);
-        } else if (target > maxSeek) {
-            target = Math.max(0, maxSeek);      // still streaming: don't seek into un-downloaded region
-        }
+        const target = Math.min(percent * dur, dur - 0.1);
         if (isFinite(target) && target >= 0) player.currentTime = target;
     }
 
