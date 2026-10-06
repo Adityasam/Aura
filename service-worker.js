@@ -1,4 +1,4 @@
-const CACHE_NAME = "Aura-V4.6.6";
+const CACHE_NAME = "Aura-V4.6.7";
 const urlsToCache = [
   "/",
   "/static/css/all.min.css",
@@ -53,6 +53,10 @@ self.addEventListener("activate", event => {
 self.addEventListener('fetch', event => {
   // Only handle GET; let range/audio/other requests pass through
   if (event.request.method !== 'GET') return;
+  // Song downloads go straight to the network: streams must arrive chunk by chunk, and the page already saves
+  // finished songs in IndexedDB (caching them here too stored every song twice)
+  const path = new URL(event.request.url).pathname;
+  if (path === '/stream_song' || path === '/load_song') return;
 
   event.respondWith(
     caches.match(event.request).then(cached => {

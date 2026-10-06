@@ -4,8 +4,13 @@ from flask_cors import CORS
 import yt_dlp
 import os
 import io
+import re
+import sys
 import glob
+import shutil
 import tempfile
+import threading
+import subprocess
 
 # Windows box keeps ffmpeg here; elsewhere yt-dlp finds it on PATH
 FFMPEG_LOCATION = 'C:\\ffmpeg\\bin'
@@ -254,6 +259,108 @@ def load_song():
     except Exception as e:
         print(f"Error downloading {request_type}: {str(e)}")
         return jsonify({"error": str(e)}), 500
+
+
+# ---------- Streaming song download ----------
+# yt-dlp writes the audio to a pipe, ffmpeg re-wraps it as fragmented MP4 (fMP4) cut into ~10 s fragments, and
+# each fragment is sent to the browser as soon as it exists. Nothing is written to disk on the server.
+# The browser plays the fragments through MediaSource as they arrive and saves the whole file when it's done.
+CHUNK_SECONDS = 10
+YTDLP_BIN = os.path.join(os.path.dirname(sys.executable), 'yt-dlp')
+FFMPEG_BIN = (os.path.join(FFMPEG_LOCATION, 'ffmpeg.exe') if os.path.isdir(FFMPEG_LOCATION)
+              else shutil.which('ffmpeg') or 'ffmpeg')
+YOUTUBE_ID = re.compile(r'[A-Za-z0-9_-]{11}')
+
+
+def ytdlp_cli_auth():
+    # same cookies + JS runtime as the Python API calls (see youtube_auth_opts)
+    opts, args = youtube_auth_opts(), []
+    if 'cookiefile' in opts:
+        args += ['--cookies', opts['cookiefile']]
+    if 'js_runtimes' in opts:
+        args += ['--js-runtimes', f"node:{opts['js_runtimes']['node']['path']}"]
+    return args
+
+
+def _kill(*procs):
+    for p in procs:
+        if p and p.poll() is None:
+            p.kill()
+    for p in procs:
+        if p:
+            try:
+                p.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                pass
+
+
+@app.route("/stream_song", methods=['GET'])
+def stream_song():
+    songid = request.args.get("id", "")
+    if not YOUTUBE_ID.fullmatch(songid):
+        return jsonify({"error": "Invalid ID"}), 400
+
+    # m4a (AAC) first: it is copied into the stream as-is; anything else (webm/opus) is re-encoded to AAC,
+    # because every browser that has MediaSource can play AAC in MP4. bestaudio/best: bare bestaudio fails on
+    # YouTube's SABR-only sessions.
+    ytdlp = subprocess.Popen(
+        [YTDLP_BIN, '-q', '--no-warnings', '--no-part', '--no-progress', '-f', 'bestaudio[ext=m4a]/bestaudio/best',
+         *ytdlp_cli_auth(), '-o', '-', 'https://www.youtube.com/watch?v=' + songid],
+        stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    ff = None
+    try:
+        head = ytdlp.stdout.read(4096)
+        if not head:
+            err = ytdlp.stderr.read().decode(errors='replace').strip().splitlines()
+            ytdlp.wait()
+            print(f"Error streaming song {songid}: {err[-1] if err else 'yt-dlp produced no audio'}")
+            return jsonify({"error": err[-1] if err else "No audio received"}), 502
+
+        threading.Thread(target=ytdlp.stderr.read, daemon=True).start()  # drain, so a chatty yt-dlp can't stall
+        is_aac_mp4 = head[4:8] == b'ftyp'  # MP4/M4A container; YouTube's m4a audio is AAC
+        ff = subprocess.Popen(
+            [FFMPEG_BIN, '-hide_banner', '-loglevel', 'error', '-i', 'pipe:0', '-vn', '-map', '0:a:0',
+             *(['-c:a', 'copy'] if is_aac_mp4 else ['-c:a', 'aac', '-b:a', '160k']),
+             '-f', 'mp4', '-movflags', 'frag_keyframe+empty_moov+default_base_moof',
+             '-frag_duration', str(CHUNK_SECONDS * 1_000_000), '-flush_packets', '1', 'pipe:1'],
+            stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
+
+        def feed():
+            # yt-dlp -> ffmpeg; runs in its own thread so reading ffmpeg's output never blocks on it
+            try:
+                ff.stdin.write(head)
+                for block in iter(lambda: ytdlp.stdout.read(65536), b''):
+                    ff.stdin.write(block)
+            except (BrokenPipeError, ValueError, OSError):
+                pass  # ffmpeg was stopped (listener left)
+            finally:
+                try:
+                    ff.stdin.close()
+                except OSError:
+                    pass
+        threading.Thread(target=feed, daemon=True).start()
+
+        first = ff.stdout.read1(65536)  # init segment (+ first fragment): proves the stream works before we say 200
+        if not first:
+            _kill(ytdlp, ff)
+            return jsonify({"error": "Could not convert audio"}), 502
+    except Exception as e:
+        _kill(ytdlp, ff)
+        print(f"Error streaming song {songid}: {e}")
+        return jsonify({"error": str(e)}), 500
+
+    def generate():
+        try:
+            yield first
+            for block in iter(lambda: ff.stdout.read1(65536), b''):
+                yield block
+        finally:
+            _kill(ytdlp, ff)  # also runs when the listener switches songs and the connection drops
+
+    return Response(generate(), mimetype='audio/mp4', headers={
+        'X-Accel-Buffering': 'no',   # nginx: pass chunks on immediately instead of buffering the whole response
+        'Cache-Control': 'no-store',
+    })
 
 
 if __name__ == '__main__':
